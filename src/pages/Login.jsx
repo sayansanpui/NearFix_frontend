@@ -1,5 +1,6 @@
 import { useState } from "react";
 import axios from "axios";
+import { useAuth } from "../context/AuthContext.jsx";
 
 const initialForm = {
     email: "",
@@ -10,6 +11,7 @@ export default function Login() {
     const [form, setForm] = useState(initialForm);
     const [error, setError] = useState("");
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const { login } = useAuth();
 
     const handleChange = (event) => {
         const { name, value } = event.target;
@@ -34,7 +36,7 @@ export default function Login() {
             if (!token) {
                 throw new Error("Missing token");
             }
-            localStorage.setItem("token", token);
+            login(token);
             window.location.assign("/");
         } catch (err) {
             setError(err?.response?.data?.message || "Login failed.");
