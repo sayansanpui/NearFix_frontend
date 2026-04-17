@@ -29,8 +29,23 @@ export default function MyBookings() {
                 fetchWorkers(),
             ]);
 
-            const workerNameById = new Map(
-                workersData.map((worker) => [worker?._id || worker?.id, worker?.name || "Unknown"])
+            const workerInfoById = new Map(
+                workersData.map((worker) => {
+                    const workerId = worker?._id || worker?.id;
+                    const workerUserIdRaw = worker?.userId;
+                    const workerUserId =
+                        typeof workerUserIdRaw === "object" && workerUserIdRaw !== null
+                            ? workerUserIdRaw?._id || workerUserIdRaw?.id
+                            : workerUserIdRaw;
+
+                    return [
+                        workerId,
+                        {
+                            name: worker?.name || "Unknown",
+                            userId: workerUserId || "",
+                        },
+                    ];
+                })
             );
 
             const normalized = bookingsData.map((booking) => {
@@ -42,12 +57,14 @@ export default function MyBookings() {
 
                 const inlineWorkerName =
                     typeof workerId === "object" && workerId !== null ? workerId?.name : "";
+                const workerInfo = workerInfoById.get(workerRef);
 
                 return {
                     id: booking?._id || booking?.id,
                     workerName:
-                        inlineWorkerName || workerNameById.get(workerRef) || "Unknown worker",
+                        inlineWorkerName || workerInfo?.name || "Unknown worker",
                     status: booking?.status || "confirmed",
+                    receiverId: workerInfo?.userId || "",
                 };
             });
 
@@ -95,7 +112,19 @@ export default function MyBookings() {
                         <Card key={booking.id}>
                             <CardContent className="flex items-center justify-between gap-3 p-4">
                                 <p className="font-medium text-slate-900">{booking.workerName}</p>
-                                <Badge>{booking.status}</Badge>
+                                <div className="flex items-center gap-2">
+                                    <Badge>{booking.status}</Badge>
+                                    <Link
+                                        to={`/chat/${booking.id}`}
+                                        state={{
+                                            receiverId: booking.receiverId,
+                                            workerName: booking.workerName,
+                                        }}
+                                        className="inline-flex"
+                                    >
+                                        <Button size="sm" variant="outline">Chat</Button>
+                                    </Link>
+                                </div>
                             </CardContent>
                         </Card>
                     ))}

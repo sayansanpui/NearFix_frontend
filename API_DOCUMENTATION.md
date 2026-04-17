@@ -99,6 +99,18 @@ If `STORE_PLAINTEXT_PASSWORD=true` (or `1`), user plain-text password is stored 
 }
 ```
 
+### Message
+```json
+{
+  "_id": "ObjectId",
+  "senderId": "ObjectId",
+  "receiverId": "ObjectId",
+  "bookingId": "ObjectId",
+  "text": "string",
+  "createdAt": "ISO date"
+}
+```
+
 ## Endpoints
 
 ---
@@ -485,6 +497,125 @@ Returns a list of bookings for the logged-in user (sorted by newest first).
 ```bash
 curl http://localhost:5021/api/bookings/my \
   -H "Authorization: Bearer <token>"
+```
+
+---
+
+## 5. Messages
+
+### `POST /api/messages`
+Send a message from the logged-in user.
+
+#### Access
+- Protected route: requires valid JWT
+
+#### Headers
+```http
+Authorization: Bearer <jwt-token>
+Content-Type: application/json
+```
+
+#### Request Body
+```json
+{
+  "receiverId": "665f9abca4f2f4d6870a5678",
+  "bookingId": "6660a8fca3ec16d95f832222",
+  "text": "I will reach in 20 minutes."
+}
+```
+
+#### Required Fields
+- `receiverId`
+- `bookingId`
+- `text`
+
+#### Behavior
+- `senderId` is taken from `req.user.userId`
+
+#### Success Response `201`
+Returns the created message document.
+
+```json
+{
+  "_id": "6661b9fca3ec16d95f833333",
+  "senderId": "665f9abca4f2f4d6870a1234",
+  "receiverId": "665f9abca4f2f4d6870a5678",
+  "bookingId": "6660a8fca3ec16d95f832222",
+  "text": "I will reach in 20 minutes.",
+  "createdAt": "2026-04-17T14:30:00.000Z",
+  "__v": 0
+}
+```
+
+#### Error Responses
+- `401` Missing/invalid token or no authenticated user context
+```json
+{ "message": "Authorization token missing." }
+```
+```json
+{ "message": "Invalid or expired token." }
+```
+```json
+{ "message": "Unauthorized." }
+```
+- `400` Missing required fields
+```json
+{ "message": "receiverId, bookingId, and text are required." }
+```
+- `500` Server error
+```json
+{ "message": "Failed to send message." }
+```
+
+#### Example cURL
+```bash
+curl -X POST http://localhost:5021/api/messages \
+  -H "Authorization: Bearer <token>" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "receiverId": "665f9abca4f2f4d6870a5678",
+    "bookingId": "6660a8fca3ec16d95f832222",
+    "text": "I will reach in 20 minutes."
+  }'
+```
+
+---
+
+### `GET /api/messages/:bookingId`
+Get all messages for a booking sorted by `createdAt` (oldest first).
+
+#### Access
+- Public route (no auth required)
+
+#### Path Params
+- `bookingId`
+
+#### Success Response `200`
+Returns a list of messages sorted by `createdAt` in ascending order.
+
+```json
+[
+  {
+    "_id": "6661b9fca3ec16d95f833333",
+    "senderId": "665f9abca4f2f4d6870a1234",
+    "receiverId": "665f9abca4f2f4d6870a5678",
+    "bookingId": "6660a8fca3ec16d95f832222",
+    "text": "I will reach in 20 minutes.",
+    "createdAt": "2026-04-17T14:30:00.000Z",
+    "__v": 0
+  }
+]
+```
+
+#### Error Responses
+- `500` Server error
+```json
+{ "message": "Failed to fetch messages." }
+```
+
+#### Example cURL
+```bash
+curl http://localhost:5021/api/messages/6660a8fca3ec16d95f832222
 ```
 
 ## Common Error Patterns
