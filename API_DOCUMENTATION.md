@@ -88,6 +88,17 @@ If `STORE_PLAINTEXT_PASSWORD=true` (or `1`), user plain-text password is stored 
 }
 ```
 
+### Booking
+```json
+{
+  "_id": "ObjectId",
+  "userId": "ObjectId",
+  "workerId": "ObjectId",
+  "status": "string (default: confirmed)",
+  "createdAt": "ISO date"
+}
+```
+
 ## Endpoints
 
 ---
@@ -352,6 +363,128 @@ Get all workers.
 #### Example cURL
 ```bash
 curl http://localhost:5021/api/workers
+```
+
+---
+
+## 4. Bookings
+
+### `POST /api/bookings`
+Create a booking for the logged-in user.
+
+#### Access
+- Protected route: requires valid JWT
+
+#### Headers
+```http
+Authorization: Bearer <jwt-token>
+Content-Type: application/json
+```
+
+#### Request Body
+```json
+{
+  "workerId": "66601c9fa3ec16d95f831111"
+}
+```
+
+#### Required Fields
+- `workerId`
+
+#### Behavior
+- `userId` is taken from `req.user.userId`
+- `status` defaults to `confirmed`
+
+#### Success Response `201`
+```json
+{
+  "message": "Booking created successfully."
+}
+```
+
+#### Error Responses
+- `401` Missing/invalid token or no authenticated user context
+```json
+{ "message": "Authorization token missing." }
+```
+```json
+{ "message": "Invalid or expired token." }
+```
+```json
+{ "message": "Unauthorized." }
+```
+- `400` Missing required field
+```json
+{ "message": "workerId is required." }
+```
+- `404` Worker not found
+```json
+{ "message": "Worker not found." }
+```
+- `500` Server error
+```json
+{ "message": "Failed to create booking." }
+```
+
+#### Example cURL
+```bash
+curl -X POST http://localhost:5021/api/bookings \
+  -H "Authorization: Bearer <token>" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "workerId": "66601c9fa3ec16d95f831111"
+  }'
+```
+
+---
+
+### `GET /api/bookings/my`
+Get bookings of the logged-in user.
+
+#### Access
+- Protected route: requires valid JWT
+
+#### Headers
+```http
+Authorization: Bearer <jwt-token>
+```
+
+#### Success Response `200`
+Returns a list of bookings for the logged-in user (sorted by newest first).
+
+```json
+[
+  {
+    "_id": "6660a8fca3ec16d95f832222",
+    "userId": "665f9abca4f2f4d6870a1234",
+    "workerId": "66601c9fa3ec16d95f831111",
+    "status": "confirmed",
+    "createdAt": "2026-04-17T12:00:00.000Z",
+    "__v": 0
+  }
+]
+```
+
+#### Error Responses
+- `401` Missing/invalid token or no authenticated user context
+```json
+{ "message": "Authorization token missing." }
+```
+```json
+{ "message": "Invalid or expired token." }
+```
+```json
+{ "message": "Unauthorized." }
+```
+- `500` Server error
+```json
+{ "message": "Failed to fetch bookings." }
+```
+
+#### Example cURL
+```bash
+curl http://localhost:5021/api/bookings/my \
+  -H "Authorization: Bearer <token>"
 ```
 
 ## Common Error Patterns

@@ -1,8 +1,11 @@
 import { useState } from "react";
+import { Link } from "react-router-dom";
 import { CalendarCheck, Sparkles } from "lucide-react";
+import WorkersMap from "../components/WorkersMap";
 import WorkersGrid from "../components/WorkersGrid";
 import { Alert } from "../components/ui/alert";
 import { Badge } from "../components/ui/badge";
+import { Button } from "../components/ui/button";
 import {
     Card,
     CardContent,
@@ -10,12 +13,20 @@ import {
     CardHeader,
     CardTitle,
 } from "../components/ui/card";
+import { useAuth } from "../context/AuthContext";
+import { createBooking } from "../lib/bookings";
 
 export default function Dashboard() {
+    const { token } = useAuth();
     const [notice, setNotice] = useState("");
 
-    const handleBookNow = (worker) => {
-        setNotice(`Booking request sent for ${worker?.name || "the selected worker"}.`);
+    const handleBookNow = async (worker) => {
+        try {
+            await createBooking(token, worker?._id || worker?.id);
+            setNotice("Booking Successful");
+        } catch (err) {
+            setNotice(err?.message || "Failed to create booking.");
+        }
     };
 
     return (
@@ -31,9 +42,13 @@ export default function Dashboard() {
                         Review worker details and send booking interest from one place.
                     </CardDescription>
                 </CardHeader>
-                <CardContent className="text-sm text-slate-700">
-                    Choose a worker and press <strong>Book now</strong>. This frontend confirms your
-                    request while your booking backend endpoints can be connected later.
+                <CardContent className="space-y-3 text-sm text-slate-700">
+                    <p>
+                        Choose a worker and press <strong>Book now</strong> to save a booking.
+                    </p>
+                    <Link to="/my-bookings" className="inline-flex">
+                        <Button variant="outline">View My Bookings</Button>
+                    </Link>
                 </CardContent>
             </Card>
 
@@ -58,6 +73,14 @@ export default function Dashboard() {
                     showAction
                     emptyMessage="No workers are listed right now. Please check again soon."
                 />
+            </section>
+
+            <section className="space-y-4">
+                <div>
+                    <h2 className="font-display text-2xl font-semibold text-slate-900">Workers map</h2>
+                    <p className="text-slate-600">Marker popups show each worker name.</p>
+                </div>
+                <WorkersMap />
             </section>
         </div>
     );

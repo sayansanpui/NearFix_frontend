@@ -5,6 +5,7 @@ import RoleRoute from "./components/RoleRoute.jsx";
 import Dashboard from "./pages/Dashboard.jsx";
 import Home from "./pages/Home.jsx";
 import Login from "./pages/Login.jsx";
+import MyBookings from "./pages/MyBookings.jsx";
 import NotFound from "./pages/NotFound.jsx";
 import Register from "./pages/Register.jsx";
 import Unauthorized from "./pages/Unauthorized.jsx";
@@ -28,6 +29,15 @@ export default function App() {
                 <RoleRoute allowedRoles={["user"]}>
                   <Dashboard />
                 </RoleRoute>
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="my-bookings"
+            element={
+              <ProtectedRoute>
+                <MyBookings />
               </ProtectedRoute>
             }
           />

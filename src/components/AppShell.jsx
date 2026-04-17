@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import { Link, NavLink, Outlet, useNavigate } from "react-router-dom";
 import {
+    BookCheck,
     Home,
     LayoutDashboard,
     LogIn,
@@ -33,7 +34,7 @@ export default function AppShell() {
 
     const links = useMemo(() => {
         if (isAuthenticated) {
-            return [
+            const authenticatedLinks = [
                 { to: "/", label: "Home", icon: Home },
                 {
                     to: dashboardPath,
@@ -41,6 +42,16 @@ export default function AppShell() {
                     icon: role === "worker" ? Wrench : LayoutDashboard,
                 },
             ];
+
+            if (role === "user") {
+                authenticatedLinks.push({
+                    to: "/my-bookings",
+                    label: "My Bookings",
+                    icon: BookCheck,
+                });
+            }
+
+            return authenticatedLinks;
         }
 
         return [

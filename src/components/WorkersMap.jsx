@@ -1,0 +1,114 @@
+import { useEffect, useRef, useState } from "react";
+import * as L from "../../node_modules/leaflet/dist/leaflet-src.esm.js";
+import markerIcon2x from "../../node_modules/leaflet/dist/images/marker-icon-2x.png";
+import markerIcon from "../../node_modules/leaflet/dist/images/marker-icon.png";
+import markerShadow from "../../node_modules/leaflet/dist/images/marker-shadow.png";
+import { Alert } from "./ui/alert";
+import { Card } from "./ui/card";
+
+const KOLKATA_CENTER = [22.57, 88.36];
+
+L.Icon.Default.mergeOptions({
+    iconRetinaUrl: markerIcon2x,
+    iconUrl: markerIcon,
+    shadowUrl: markerShadow,
+});
+
+export default function WorkersMap() {
+    const [workers, setWorkers] = useState([]);
+    const [error, setError] = useState("");
+    const mapElementRef = useRef(null);
+    const mapRef = useRef(null);
+    const markerLayerRef = useRef(null);
+
+    useEffect(() => {
+        let isMounted = true;
+
+        const fetchWorkers = async () => {
+            try {
+                setError("");
+                const baseUrl = import.meta.env.VITE_API_URL || "";
+                const response = await fetch(`${baseUrl}/api/workers`);
+
+                const contentType = response.headers.get("content-type") || "";
+                const hasJson = contentType.includes("application/json");
+                const data = hasJson ? await response.json() : null;
+
+                if (!response.ok) {
+                    throw new Error(data?.message || "Failed to fetch workers.");
+                }
+
+                if (!Array.isArray(data)) {
+                    throw new Error("Invalid workers response format.");
+                }
+
+                if (isMounted) {
+                    setWorkers(data);
+                }
+            } catch (err) {
+                if (isMounted) {
+                    setError(err?.message || "Unable to load worker locations.");
+                }
+            }
+        };
+
+        void fetchWorkers();
+
+        return () => {
+            isMounted = false;
+        };
+    }, []);
+
+    useEffect(() => {
+        if (!mapElementRef.current || mapRef.current) {
+            return;
+        }
+
+        const map = L.map(mapElementRef.current).setView(KOLKATA_CENTER, 11);
+
+        L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+            attribution:
+                '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+        }).addTo(map);
+
+        mapRef.current = map;
+        markerLayerRef.current = L.layerGroup().addTo(map);
+
+        return () => {
+            map.remove();
+            mapRef.current = null;
+            markerLayerRef.current = null;
+        };
+    }, []);
+
+    useEffect(() => {
+        const map = mapRef.current;
+        const markerLayer = markerLayerRef.current;
+        if (!map || !markerLayer) {
+            return;
+        }
+
+        markerLayer.clearLayers();
+
+        workers.forEach((worker) => {
+            const lat = Number(worker?.location?.lat);
+            const lng = Number(worker?.location?.lng);
+            if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
+                return;
+            }
+
+            L.marker([lat, lng])
+                .addTo(markerLayer)
+                .bindPopup(worker?.name || "Unnamed worker");
+        });
+    }, [workers]);
+
+    return (
+        <div className="space-y-3">
+            {error && <Alert variant="error">{error}</Alert>}
+            <Card className="overflow-hidden border-slate-200 p-2">
+                <div ref={mapElementRef} className="h-[340px] w-full rounded-lg sm:h-[420px]" />
+            </Card>
+        </div>
+    );
+}

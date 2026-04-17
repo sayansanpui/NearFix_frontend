@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { ArrowRight, LayoutDashboard, LogIn, UserPlus } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
+import WorkersMap from "../components/WorkersMap";
 import WorkersGrid from "../components/WorkersGrid";
 import { Alert } from "../components/ui/alert";
 import { Badge } from "../components/ui/badge";
@@ -13,15 +14,16 @@ import {
     CardTitle,
 } from "../components/ui/card";
 import { useAuth } from "../context/AuthContext";
+import { createBooking } from "../lib/bookings";
 import { getDefaultRouteForRole } from "../lib/auth";
 
 export default function Home() {
-    const { isAuthenticated, role } = useAuth();
+    const { isAuthenticated, role, token } = useAuth();
     const navigate = useNavigate();
     const [bookingMessage, setBookingMessage] = useState("");
     const dashboardPath = getDefaultRouteForRole(role);
 
-    const handleWorkerAction = (worker) => {
+    const handleWorkerAction = async (worker) => {
         if (!isAuthenticated) {
             navigate("/login");
             return;
@@ -31,9 +33,12 @@ export default function Home() {
             return;
         }
 
-        setBookingMessage(
-            `Booking interest captured for ${worker?.name || "selected worker"}.`
-        );
+        try {
+            await createBooking(token, worker?._id || worker?.id);
+            setBookingMessage("Booking Successful");
+        } catch (err) {
+            setBookingMessage(err?.message || "Failed to create booking.");
+        }
     };
 
     return (
@@ -139,6 +144,16 @@ export default function Home() {
                     showAction={role !== "worker"}
                     emptyMessage="No worker profiles are available yet."
                 />
+            </section>
+
+            <section className="space-y-4">
+                <div>
+                    <h2 className="font-display text-2xl font-semibold text-slate-900">Workers map</h2>
+                    <p className="text-slate-600">
+                        Explore worker locations centered around Kolkata.
+                    </p>
+                </div>
+                <WorkersMap />
             </section>
         </div>
     );
