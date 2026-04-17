@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useMemo, useState } from "react";
+import { createContext, useContext, useMemo, useState } from "react";
 import { jwtDecode } from "jwt-decode";
 
 const AuthContext = createContext(null);
@@ -15,44 +15,63 @@ const decodeToken = (token) => {
     }
 };
 
+const getStoredAuth = () => {
+    const storedToken = localStorage.getItem("token") || "";
+    if (!storedToken) {
+        return { token: "", user: null };
+    }
+
+    const decodedUser = decodeToken(storedToken);
+    if (!decodedUser?.userId || !decodedUser?.role) {
+        localStorage.removeItem("token");
+        return { token: "", user: null };
+    }
+
+    return { token: storedToken, user: decodedUser };
+};
+
 export function AuthProvider({ children }) {
-    const [token, setToken] = useState("");
-    const [user, setUser] = useState(null);
-    const [isReady, setIsReady] = useState(false);
+    const [authState, setAuthState] = useState(() => getStoredAuth());
+
+    const token = authState.token;
+    const user = authState.user;
+    const isReady = true;
 
     const login = (nextToken) => {
         if (!nextToken) {
-            return;
+            return null;
+        }
+
+        const decodedUser = decodeToken(nextToken);
+        if (!decodedUser?.userId || !decodedUser?.role) {
+            localStorage.removeItem("token");
+            setAuthState({ token: "", user: null });
+            return null;
         }
 
         localStorage.setItem("token", nextToken);
-        setToken(nextToken);
-        setUser(decodeToken(nextToken));
+        setAuthState({ token: nextToken, user: decodedUser });
+
+        return decodedUser;
     };
 
     const logout = () => {
         localStorage.removeItem("token");
-        setToken("");
-        setUser(null);
+        setAuthState({ token: "", user: null });
     };
 
-    useEffect(() => {
-        const storedToken = localStorage.getItem("token") || "";
-        if (storedToken) {
-            setToken(storedToken);
-            setUser(decodeToken(storedToken));
-        }
-        setIsReady(true);
-    }, []);
+    const role = user?.role || null;
+    const isAuthenticated = Boolean(token && user);
 
     const value = useMemo(
-        () => ({ token, user, login, logout, isReady }),
-        [token, user, isReady]
+        () => ({ token, user, role, isAuthenticated, login, logout, isReady }),
+        [token, user, role, isAuthenticated, isReady]
     );
 
     return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
 
+// eslint-disable-next-line react-refresh/only-export-components
 export function useAuth() {
     const context = useContext(AuthContext);
     if (!context) {

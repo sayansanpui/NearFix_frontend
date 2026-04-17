@@ -1,6 +1,19 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import axios from "axios";
+import { Link, useLocation, useNavigate } from "react-router-dom";
+import { Alert } from "../components/ui/alert";
+import { Button } from "../components/ui/button";
+import {
+    Card,
+    CardContent,
+    CardDescription,
+    CardHeader,
+    CardTitle,
+} from "../components/ui/card";
+import { Input } from "../components/ui/input";
+import { Label } from "../components/ui/label";
 import { useAuth } from "../context/AuthContext.jsx";
+import { getDefaultRouteForRole } from "../lib/auth";
 
 const initialForm = {
     email: "",
@@ -11,7 +24,28 @@ export default function Login() {
     const [form, setForm] = useState(initialForm);
     const [error, setError] = useState("");
     const [isSubmitting, setIsSubmitting] = useState(false);
-    const { login } = useAuth();
+    const location = useLocation();
+    const navigate = useNavigate();
+    const { login, isAuthenticated, role } = useAuth();
+    const infoMessage = location.state?.message || "";
+
+    useEffect(() => {
+        if (isAuthenticated) {
+            navigate(getDefaultRouteForRole(role), { replace: true });
+        }
+    }, [isAuthenticated, navigate, role]);
+
+    const resolveRedirectPath = (nextRole) => {
+        const from = location.state?.from;
+        if (
+            typeof from === "string" &&
+            !["/login", "/register", "/unauthorized"].includes(from)
+        ) {
+            return from;
+        }
+
+        return getDefaultRouteForRole(nextRole);
+    };
 
     const handleChange = (event) => {
         const { name, value } = event.target;
@@ -36,8 +70,13 @@ export default function Login() {
             if (!token) {
                 throw new Error("Missing token");
             }
-            login(token);
-            window.location.assign("/");
+
+            const loggedUser = login(token);
+            if (!loggedUser?.role) {
+                throw new Error("Invalid login response.");
+            }
+
+            navigate(resolveRedirectPath(loggedUser.role), { replace: true });
         } catch (err) {
             setError(err?.response?.data?.message || "Login failed.");
         } finally {
@@ -46,59 +85,57 @@ export default function Login() {
     };
 
     return (
-        <div className="min-h-screen bg-slate-950 text-slate-100 flex items-center justify-center px-4">
-            <div className="w-full max-w-md bg-slate-900 border border-slate-800 rounded-2xl p-8 shadow-xl">
-                <h1 className="text-2xl font-semibold mb-2">Welcome back</h1>
-                <p className="text-slate-400 mb-6">Sign in to continue to NearFix.</p>
+        <div className="mx-auto w-full max-w-md">
+            <Card>
+                <CardHeader>
+                    <CardTitle>Welcome back</CardTitle>
+                    <CardDescription>Sign in to continue to NearFix.</CardDescription>
+                </CardHeader>
 
-                {error && (
-                    <div className="mb-4 rounded-lg border border-rose-500/50 bg-rose-500/10 px-4 py-3 text-rose-200 text-sm">
-                        {error}
-                    </div>
-                )}
+                <CardContent className="space-y-4">
+                    {infoMessage && <Alert variant="success">{infoMessage}</Alert>}
+                    {error && <Alert variant="error">{error}</Alert>}
 
-                <form onSubmit={handleSubmit} className="space-y-4">
-                    <div>
-                        <label className="block text-sm font-medium mb-1" htmlFor="email">
-                            Email
-                        </label>
-                        <input
-                            id="email"
-                            name="email"
-                            type="email"
-                            value={form.email}
-                            onChange={handleChange}
-                            className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-slate-100 placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-400/70"
-                            placeholder="you@example.com"
-                            required
-                        />
-                    </div>
+                    <form onSubmit={handleSubmit} className="space-y-4">
+                        <div>
+                            <Label htmlFor="email">Email</Label>
+                            <Input
+                                id="email"
+                                name="email"
+                                type="email"
+                                value={form.email}
+                                onChange={handleChange}
+                                placeholder="you@example.com"
+                                required
+                            />
+                        </div>
 
-                    <div>
-                        <label className="block text-sm font-medium mb-1" htmlFor="password">
-                            Password
-                        </label>
-                        <input
-                            id="password"
-                            name="password"
-                            type="password"
-                            value={form.password}
-                            onChange={handleChange}
-                            className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-slate-100 placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-400/70"
-                            placeholder="Enter your password"
-                            required
-                        />
-                    </div>
+                        <div>
+                            <Label htmlFor="password">Password</Label>
+                            <Input
+                                id="password"
+                                name="password"
+                                type="password"
+                                value={form.password}
+                                onChange={handleChange}
+                                placeholder="Enter your password"
+                                required
+                            />
+                        </div>
 
-                    <button
-                        type="submit"
-                        disabled={isSubmitting}
-                        className="w-full rounded-lg bg-emerald-400 px-4 py-2 font-semibold text-slate-950 transition hover:bg-emerald-300 disabled:cursor-not-allowed disabled:opacity-70"
-                    >
-                        {isSubmitting ? "Signing in..." : "Sign in"}
-                    </button>
-                </form>
-            </div>
+                        <Button type="submit" fullWidth disabled={isSubmitting}>
+                            {isSubmitting ? "Signing in..." : "Sign in"}
+                        </Button>
+                    </form>
+
+                    <p className="text-sm text-slate-600">
+                        New to NearFix?{" "}
+                        <Link className="font-semibold text-emerald-700 hover:text-emerald-600" to="/register">
+                            Create an account
+                        </Link>
+                    </p>
+                </CardContent>
+            </Card>
         </div>
     );
 }

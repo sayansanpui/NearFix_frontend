@@ -1,4 +1,18 @@
 import { useState } from "react";
+import { CheckCircle2 } from "lucide-react";
+import WorkerCard from "../components/WorkerCard";
+import { Alert } from "../components/ui/alert";
+import { Badge } from "../components/ui/badge";
+import { Button } from "../components/ui/button";
+import {
+    Card,
+    CardContent,
+    CardDescription,
+    CardHeader,
+    CardTitle,
+} from "../components/ui/card";
+import { Input } from "../components/ui/input";
+import { Label } from "../components/ui/label";
 import { useAuth } from "../context/AuthContext";
 
 const initialForm = {
@@ -7,13 +21,14 @@ const initialForm = {
     price: "",
     lat: "",
     lng: "",
-    imageUrl: "",
+    image: "",
 };
 
 export default function WorkerDashboard() {
     const { token } = useAuth();
     const [formData, setFormData] = useState(initialForm);
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const [createdWorker, setCreatedWorker] = useState(null);
     const [successMessage, setSuccessMessage] = useState("");
     const [errorMessage, setErrorMessage] = useState("");
 
@@ -35,15 +50,26 @@ export default function WorkerDashboard() {
             setIsSubmitting(true);
             setErrorMessage("");
             setSuccessMessage("");
+            setCreatedWorker(null);
             const baseUrl = import.meta.env.VITE_API_URL || "";
+
+            const price = Number(formData.price);
+            const lat = Number(formData.lat);
+            const lng = Number(formData.lng);
+
+            if (!Number.isFinite(price) || !Number.isFinite(lat) || !Number.isFinite(lng)) {
+                throw new Error("Price and coordinates must be valid numbers.");
+            }
 
             const payload = {
                 name: formData.name.trim(),
                 skill: formData.skill.trim(),
-                price: Number(formData.price),
-                lat: Number(formData.lat),
-                lng: Number(formData.lng),
-                imageUrl: formData.imageUrl.trim(),
+                price,
+                location: {
+                    lat,
+                    lng,
+                },
+                image: formData.image.trim(),
             };
 
             const response = await fetch(`${baseUrl}/api/workers`, {
@@ -55,11 +81,16 @@ export default function WorkerDashboard() {
                 body: JSON.stringify(payload),
             });
 
+            const contentType = response.headers.get("content-type") || "";
+            const hasJson = contentType.includes("application/json");
+            const data = hasJson ? await response.json() : null;
+
             if (!response.ok) {
-                throw new Error("Failed to create worker");
+                throw new Error(data?.message || "Failed to create worker.");
             }
 
             setSuccessMessage("Worker created successfully.");
+            setCreatedWorker(data);
             setFormData(initialForm);
         } catch (error) {
             setErrorMessage(error.message || "Something went wrong.");
@@ -69,119 +100,130 @@ export default function WorkerDashboard() {
     };
 
     return (
-        <div className="min-h-screen bg-slate-950 px-4 py-10 text-slate-100">
-            <div className="mx-auto w-full max-w-2xl rounded-2xl border border-slate-800 bg-slate-900/70 p-6 shadow-lg">
-                <h1 className="text-2xl font-semibold">Worker Dashboard</h1>
-                <p className="mt-2 text-slate-400">Add a new worker profile.</p>
+        <div className="grid gap-6 lg:grid-cols-[1.1fr_0.9fr]">
+            <Card>
+                <CardHeader>
+                    <Badge variant="warm" className="w-fit">Worker Dashboard</Badge>
+                    <CardTitle className="mt-2">Create your worker profile</CardTitle>
+                    <CardDescription>
+                        Submit a profile that matches your backend contract so users can discover
+                        your service.
+                    </CardDescription>
+                </CardHeader>
 
-                <form onSubmit={handleSubmit} className="mt-6 space-y-4">
-                    <div>
-                        <label className="mb-1 block text-sm text-slate-300" htmlFor="name">
-                            Name
-                        </label>
-                        <input
-                            id="name"
-                            name="name"
-                            type="text"
-                            value={formData.name}
-                            onChange={handleChange}
-                            required
-                            className="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-slate-100 outline-none ring-0 placeholder:text-slate-500 focus:border-sky-500"
-                        />
-                    </div>
-
-                    <div>
-                        <label className="mb-1 block text-sm text-slate-300" htmlFor="skill">
-                            Skill
-                        </label>
-                        <input
-                            id="skill"
-                            name="skill"
-                            type="text"
-                            value={formData.skill}
-                            onChange={handleChange}
-                            required
-                            className="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-slate-100 outline-none ring-0 placeholder:text-slate-500 focus:border-sky-500"
-                        />
-                    </div>
-
-                    <div>
-                        <label className="mb-1 block text-sm text-slate-300" htmlFor="price">
-                            Price
-                        </label>
-                        <input
-                            id="price"
-                            name="price"
-                            type="number"
-                            min="0"
-                            step="0.01"
-                            value={formData.price}
-                            onChange={handleChange}
-                            required
-                            className="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-slate-100 outline-none ring-0 placeholder:text-slate-500 focus:border-sky-500"
-                        />
-                    </div>
-
-                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                <CardContent>
+                    <form onSubmit={handleSubmit} className="space-y-4">
                         <div>
-                            <label className="mb-1 block text-sm text-slate-300" htmlFor="lat">
-                                Latitude
-                            </label>
-                            <input
-                                id="lat"
-                                name="lat"
-                                type="number"
-                                step="any"
-                                value={formData.lat}
+                            <Label htmlFor="name">Name</Label>
+                            <Input
+                                id="name"
+                                name="name"
+                                type="text"
+                                value={formData.name}
                                 onChange={handleChange}
                                 required
-                                className="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-slate-100 outline-none ring-0 placeholder:text-slate-500 focus:border-sky-500"
                             />
                         </div>
 
                         <div>
-                            <label className="mb-1 block text-sm text-slate-300" htmlFor="lng">
-                                Longitude
-                            </label>
-                            <input
-                                id="lng"
-                                name="lng"
-                                type="number"
-                                step="any"
-                                value={formData.lng}
+                            <Label htmlFor="skill">Skill</Label>
+                            <Input
+                                id="skill"
+                                name="skill"
+                                type="text"
+                                value={formData.skill}
                                 onChange={handleChange}
                                 required
-                                className="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-slate-100 outline-none ring-0 placeholder:text-slate-500 focus:border-sky-500"
                             />
                         </div>
-                    </div>
 
-                    <div>
-                        <label className="mb-1 block text-sm text-slate-300" htmlFor="imageUrl">
-                            Image URL
-                        </label>
-                        <input
-                            id="imageUrl"
-                            name="imageUrl"
-                            type="url"
-                            value={formData.imageUrl}
-                            onChange={handleChange}
-                            required
-                            className="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-slate-100 outline-none ring-0 placeholder:text-slate-500 focus:border-sky-500"
-                        />
-                    </div>
+                        <div>
+                            <Label htmlFor="price">Price</Label>
+                            <Input
+                                id="price"
+                                name="price"
+                                type="number"
+                                min="0"
+                                step="1"
+                                value={formData.price}
+                                onChange={handleChange}
+                                required
+                            />
+                        </div>
 
-                    {errorMessage && <p className="text-sm text-red-400">{errorMessage}</p>}
-                    {successMessage && <p className="text-sm text-emerald-400">{successMessage}</p>}
+                        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                            <div>
+                                <Label htmlFor="lat">Latitude</Label>
+                                <Input
+                                    id="lat"
+                                    name="lat"
+                                    type="number"
+                                    step="any"
+                                    value={formData.lat}
+                                    onChange={handleChange}
+                                    required
+                                />
+                            </div>
 
-                    <button
-                        type="submit"
-                        disabled={isSubmitting}
-                        className="w-full rounded-lg bg-sky-500 px-4 py-2 font-medium text-white transition hover:bg-sky-400 disabled:cursor-not-allowed disabled:opacity-60"
-                    >
-                        {isSubmitting ? "Submitting..." : "Create Worker"}
-                    </button>
-                </form>
+                            <div>
+                                <Label htmlFor="lng">Longitude</Label>
+                                <Input
+                                    id="lng"
+                                    name="lng"
+                                    type="number"
+                                    step="any"
+                                    value={formData.lng}
+                                    onChange={handleChange}
+                                    required
+                                />
+                            </div>
+                        </div>
+
+                        <div>
+                            <Label htmlFor="image">Image URL</Label>
+                            <Input
+                                id="image"
+                                name="image"
+                                type="url"
+                                value={formData.image}
+                                onChange={handleChange}
+                                required
+                            />
+                        </div>
+
+                        {errorMessage && <Alert variant="error">{errorMessage}</Alert>}
+                        {successMessage && (
+                            <Alert variant="success" className="flex items-center gap-2">
+                                <CheckCircle2 className="h-4 w-4" />
+                                {successMessage}
+                            </Alert>
+                        )}
+
+                        <Button type="submit" fullWidth disabled={isSubmitting}>
+                            {isSubmitting ? "Submitting..." : "Create Worker"}
+                        </Button>
+                    </form>
+                </CardContent>
+            </Card>
+
+            <div className="space-y-3">
+                <h2 className="font-display text-xl font-semibold text-slate-900">Live preview</h2>
+                <WorkerCard
+                    worker={
+                        createdWorker || {
+                            name: formData.name || "Your name",
+                            skill: formData.skill || "Skill",
+                            price: Number(formData.price || 0),
+                            location: {
+                                lat: Number(formData.lat || 0),
+                                lng: Number(formData.lng || 0),
+                            },
+                            image: formData.image,
+                            rating: createdWorker?.rating || 0,
+                        }
+                    }
+                    showAction={false}
+                />
             </div>
         </div>
     );

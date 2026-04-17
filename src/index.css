@@ -1,3 +1,44 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+:root {
+	--font-body: "Outfit", "Avenir Next", "Trebuchet MS", sans-serif;
+	--font-display: "Manrope", "Avenir Next", "Trebuchet MS", sans-serif;
+}
+
+@layer base {
+	* {
+		box-sizing: border-box;
+	}
+
+	body {
+		margin: 0;
+		min-height: 100vh;
+		color: #0f172a;
+		font-family: var(--font-body);
+		line-height: 1.5;
+	}
+}
+
+@layer utilities {
+	.font-display {
+		font-family: var(--font-display);
+	}
+
+	.animate-in {
+		animation: fade-up 0.45s ease-out both;
+	}
+}
+
+@keyframes fade-up {
+	from {
+		opacity: 0;
+		transform: translateY(12px);
+	}
+
+	to {
+		opacity: 1;
+		transform: translateY(0);
+	}
+}
