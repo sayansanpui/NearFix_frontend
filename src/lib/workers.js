@@ -114,17 +114,23 @@ export async function deleteMyWorkerProfile(token) {
     return data;
 }
 
-export async function toggleWorkerAvailability(token) {
+export async function toggleWorkerAvailability(token, availability) {
     if (!token) {
         throw new Error("Please login to update worker availability.");
+    }
+
+    if (typeof availability !== "boolean") {
+        throw new Error("availability must be true or false.");
     }
 
     const baseUrl = import.meta.env.VITE_API_URL || "";
     const response = await fetch(`${baseUrl}/api/workers/availability`, {
         method: "PATCH",
         headers: {
+            "Content-Type": "application/json",
             Authorization: `Bearer ${token}`,
         },
+        body: JSON.stringify({ availability }),
     });
 
     const data = await readJsonResponse(response);

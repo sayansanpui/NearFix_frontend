@@ -19,51 +19,117 @@ export default function Chat() {
     const { bookingId = "" } = useParams();
     const location = useLocation();
     const { token, user, role } = useAuth();
+    const receiverIdFromState = location.state?.receiverId || "";
+    const counterpartNameFromState =
+        location.state?.counterpartName || location.state?.workerName || "Conversation";
 
     const [messages, setMessages] = useState([]);
     const [loading, setLoading] = useState(true);
     const [sending, setSending] = useState(false);
     const [error, setError] = useState("");
     const [text, setText] = useState("");
-    const [receiverId, setReceiverId] = useState(location.state?.receiverId || "");
-    const [chatTitle, setChatTitle] = useState(
-        location.state?.counterpartName || location.state?.workerName || "Conversation"
-    );
+    const [receiverId, setReceiverId] = useState(receiverIdFromState);
+    const [chatTitle, setChatTitle] = useState(counterpartNameFromState);
 
     useEffect(() => {
+        let isActive = true;
+
+        const fetchMessagesForBooking = async ({ silent } = { silent: false }) => {
+            try {
+                const messagesData = await getMessages(token, bookingId);
+
+                if (!isActive) {
+                    return;
+                }
+
+                setMessages(messagesData);
+                if (!silent) {
+                    setError("");
+                }
+            } catch (err) {
+                if (!isActive || silent) {
+                    return;
+                }
+
+                setError(err?.message || "Failed to load messages.");
+            }
+        };
+
         const loadChatData = async () => {
             try {
                 setLoading(true);
                 setError("");
 
-                const [messagesData, participantsData] = await Promise.all([
-                    getMessages(token, bookingId),
-                    getBookingParticipants(token, bookingId),
-                ]);
+                const participantsData = await getBookingParticipants(token, bookingId).catch(() => null);
+                await fetchMessagesForBooking();
 
-                setMessages(messagesData);
-                setReceiverId(participantsData?.receiverId || "");
+                if (!isActive) {
+                    return;
+                }
 
-                const participantUserId = participantsData?.user?.id || "";
+                const workerUserId =
+                    normalizeEntityId(participantsData?.worker?.userId) ||
+                    normalizeEntityId(participantsData?.worker?.id);
+                const customerUserId =
+                    normalizeEntityId(participantsData?.user?.userId) ||
+                    normalizeEntityId(participantsData?.user?.id);
+
+                const roleBasedReceiverId = role === "worker" ? customerUserId : workerUserId;
+                const resolvedReceiverId =
+                    receiverIdFromState ||
+                    roleBasedReceiverId ||
+                    normalizeEntityId(participantsData?.receiverId) ||
+                    "";
+
+                setReceiverId(resolvedReceiverId);
+
                 const nextTitle =
-                    user?.userId === participantUserId
-                        ? participantsData?.worker?.name || "Worker"
-                        : participantsData?.user?.name || "Customer";
+                    counterpartNameFromState !== "Conversation"
+                        ? counterpartNameFromState
+                        : user?.userId === normalizeEntityId(participantsData?.user?.id)
+                            ? participantsData?.worker?.name || "Worker"
+                            : participantsData?.user?.name || "Customer";
 
                 if (nextTitle) {
                     setChatTitle(nextTitle);
                 }
             } catch (err) {
+                if (!isActive) {
+                    return;
+                }
+
                 setError(err?.message || "Failed to load messages.");
             } finally {
-                setLoading(false);
+                if (isActive) {
+                    setLoading(false);
+                }
             }
         };
 
         if (token) {
             void loadChatData();
         }
-    }, [bookingId, token, user?.userId]);
+
+        const pollingId = window.setInterval(() => {
+            if (!token || !bookingId) {
+                return;
+            }
+
+            void fetchMessagesForBooking({ silent: true });
+        }, 3000);
+
+        return () => {
+            isActive = false;
+            window.clearInterval(pollingId);
+        };
+    }, [
+        bookingId,
+        counterpartNameFromState,
+        receiverIdFromState,
+        role,
+        token,
+        user?.userId,
+    ]);
 
     const handleSubmit = async (event) => {
         event.preventDefault();
@@ -83,7 +149,12 @@ export default function Chat() {
                 text,
             });
 
-            setMessages((prev) => [...prev, created]);
+            if (!created) {
+                throw new Error("Failed to send message.");
+            }
+
+            const refreshedMessages = await getMessages(token, bookingId);
+            setMessages(refreshedMessages);
             setText("");
         } catch (err) {
             setError(err?.message || "Failed to send message.");

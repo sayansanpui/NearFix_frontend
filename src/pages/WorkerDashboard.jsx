@@ -171,7 +171,9 @@ export default function WorkerDashboard() {
             setIsTogglingAvailability(true);
             setErrorMessage("");
 
-            const data = await toggleWorkerAvailability(token);
+            const nextAvailabilityValue = !availability;
+
+            const data = await toggleWorkerAvailability(token, nextAvailabilityValue);
             const nextAvailability =
                 typeof data?.availability === "boolean"
                     ? data.availability
@@ -181,7 +183,7 @@ export default function WorkerDashboard() {
                 setAvailability(nextAvailability);
             } else {
                 // Fallback for legacy responses that do not include availability fields.
-                setAvailability((prev) => !prev);
+                setAvailability(nextAvailabilityValue);
             }
 
             if (data?.worker) {
