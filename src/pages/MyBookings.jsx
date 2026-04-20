@@ -77,9 +77,21 @@ export default function MyBookings() {
     };
 
     useEffect(() => {
-        // eslint-disable-next-line react-hooks/set-state-in-effect
-        void loadBookings();
-        // eslint-disable-next-line react-hooks/exhaustive-deps
+        let intervalId;
+
+        if (token) {
+            // eslint-disable-next-line react-hooks/set-state-in-effect
+            void loadBookings();
+            intervalId = setInterval(() => {
+                void loadBookings();
+            }, 5000);
+        }
+
+        return () => {
+            if (intervalId) {
+                clearInterval(intervalId);
+            }
+        };
     }, [token]);
 
     return (
@@ -89,11 +101,6 @@ export default function MyBookings() {
                     <CardTitle className="text-2xl">My Bookings</CardTitle>
                     <CardDescription>Booked workers with current booking status.</CardDescription>
                 </CardHeader>
-                <CardContent>
-                    <Button variant="outline" onClick={() => void loadBookings()} disabled={loading}>
-                        {loading ? "Refreshing..." : "Refresh"}
-                    </Button>
-                </CardContent>
             </Card>
 
             {error && <Alert variant="error">{error}</Alert>}

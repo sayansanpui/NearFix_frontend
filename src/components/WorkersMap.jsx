@@ -15,7 +15,7 @@ L.Icon.Default.mergeOptions({
     shadowUrl: markerShadow,
 });
 
-export default function WorkersMap({ onlyAvailable = false }) {
+export default function WorkersMap({ onlyAvailable = false, highlightWorkerId = "" }) {
     const [workers, setWorkers] = useState([]);
     const [error, setError] = useState("");
     const mapElementRef = useRef(null);
@@ -95,11 +95,27 @@ export default function WorkersMap({ onlyAvailable = false }) {
                 return;
             }
 
+            const workerId = worker?._id || worker?.id;
+            const isHighlighted = highlightWorkerId && workerId === highlightWorkerId;
+
+            if (isHighlighted) {
+                L.circleMarker([lat, lng], {
+                    radius: 10,
+                    color: "#16a34a",
+                    fillColor: "#16a34a",
+                    fillOpacity: 0.85,
+                    weight: 2,
+                })
+                    .addTo(markerLayer)
+                    .bindPopup("Worker on the way");
+                return;
+            }
+
             L.marker([lat, lng])
                 .addTo(markerLayer)
                 .bindPopup(worker?.name || "Unnamed worker");
         });
-    }, [workers]);
+    }, [highlightWorkerId, workers]);
 
     return (
         <div className="space-y-3">

@@ -14,7 +14,7 @@ import {
     CardTitle,
 } from "../components/ui/card";
 import { useAuth } from "../context/AuthContext";
-import { createBooking } from "../lib/bookings";
+import { createBooking, getMyBookings } from "../lib/bookings";
 import { getDefaultRouteForRole } from "../lib/auth";
 
 function getDistanceValue(worker) {
@@ -43,14 +43,44 @@ function sortWorkersByDistance(workers = []) {
     });
 }
 
+function normalizeBookingStatus(status) {
+    const normalizedStatus = String(status || "pending").trim().toLowerCase();
+
+    if (normalizedStatus === "confirmed") {
+        return "pending";
+    }
+
+    if (["pending", "accepted", "rejected", "completed"].includes(normalizedStatus)) {
+        return normalizedStatus;
+    }
+
+    return "pending";
+}
+
+function getWorkerIdFromBooking(booking) {
+    const worker = booking?.workerId;
+    if (typeof worker === "object" && worker !== null) {
+        return worker?._id || worker?.id || "";
+    }
+
+    return worker || "";
+}
+
 export default function Home() {
     const { isAuthenticated, role, token } = useAuth();
     const navigate = useNavigate();
     const [bookingMessage, setBookingMessage] = useState("");
+    const [isBooking, setIsBooking] = useState(false);
     const [userLocation, setUserLocation] = useState(null);
     const [workers, setWorkers] = useState([]);
+    const [acceptedWorkerId, setAcceptedWorkerId] = useState("");
     const dashboardPath = getDefaultRouteForRole(role);
     const sortedWorkers = useMemo(() => sortWorkersByDistance(workers), [workers]);
+    const actionLabel = !isAuthenticated
+        ? "Login to book"
+        : isBooking
+            ? "Searching for worker..."
+            : "Book now";
 
     useEffect(() => {
         if (!navigator.geolocation) {
@@ -75,6 +105,49 @@ export default function Home() {
         );
     }, []);
 
+    useEffect(() => {
+        if (!token || role !== "user") {
+            setAcceptedWorkerId("");
+            return;
+        }
+
+        let isMounted = true;
+        let intervalId;
+
+        const loadAcceptedBooking = async () => {
+            try {
+                const bookings = await getMyBookings(token);
+                if (!isMounted) {
+                    return;
+                }
+
+                const acceptedBooking = bookings.find(
+                    (booking) => normalizeBookingStatus(booking?.status) === "accepted",
+                );
+
+                setAcceptedWorkerId(
+                    acceptedBooking ? getWorkerIdFromBooking(acceptedBooking) : "",
+                );
+            } catch (error) {
+                if (isMounted) {
+                    setAcceptedWorkerId("");
+                }
+            }
+        };
+
+        void loadAcceptedBooking();
+        intervalId = setInterval(() => {
+            void loadAcceptedBooking();
+        }, 5000);
+
+        return () => {
+            isMounted = false;
+            if (intervalId) {
+                clearInterval(intervalId);
+            }
+        };
+    }, [role, token]);
+
     const handleWorkerAction = async (worker) => {
         if (!isAuthenticated) {
             navigate("/login");
@@ -92,10 +165,14 @@ export default function Home() {
         }
 
         try {
+            setIsBooking(true);
+            setBookingMessage("");
             await createBooking(token, matchedWorker?._id || matchedWorker?.id);
-            setBookingMessage("Booking Successful");
+            setBookingMessage("Booking Requested");
         } catch (err) {
             setBookingMessage(err?.message || "Failed to create booking.");
+        } finally {
+            setIsBooking(false);
         }
     };
 
@@ -198,8 +275,9 @@ export default function Home() {
 
                 <WorkersGrid
                     onAction={handleWorkerAction}
-                    actionLabel={isAuthenticated ? "Book now" : "Login to book"}
+                    actionLabel={actionLabel}
                     showAction={role !== "worker"}
+                    actionDisabled={isBooking}
                     emptyMessage="No worker profiles are available yet."
                     onlyAvailable
                     location={userLocation}
@@ -214,7 +292,7 @@ export default function Home() {
                         Explore worker locations centered around Kolkata.
                     </p>
                 </div>
-                <WorkersMap onlyAvailable />
+                <WorkersMap onlyAvailable highlightWorkerId={acceptedWorkerId} />
             </section>
         </div>
     );
