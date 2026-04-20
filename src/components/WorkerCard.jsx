@@ -28,6 +28,8 @@ export default function WorkerCard({
     const name = worker?.name || "Unknown Worker";
     const skill = worker?.skill || "General";
     const rating = Number(worker?.rating || 0).toFixed(1);
+    const distance = Number(worker?.distance);
+    const distanceText = Number.isFinite(distance) ? `${distance.toFixed(1)} km away` : "";
     const locationText =
         typeof worker?.location?.lat === "number" && typeof worker?.location?.lng === "number"
             ? `${worker.location.lat.toFixed(2)}, ${worker.location.lng.toFixed(2)}`
@@ -53,8 +55,11 @@ export default function WorkerCard({
             )}
 
             <CardHeader className="pb-2">
-                <div className="flex items-center justify-between gap-2">
-                    <CardTitle className="line-clamp-1">{name}</CardTitle>
+                <div className="flex items-start justify-between gap-2">
+                    <div>
+                        <CardTitle className="line-clamp-1">{name}</CardTitle>
+                        {distanceText && <p className="text-xs text-slate-500">{distanceText}</p>}
+                    </div>
                     <Badge variant="warm">{skill}</Badge>
                 </div>
             </CardHeader>

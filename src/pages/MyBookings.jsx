@@ -63,7 +63,7 @@ export default function MyBookings() {
                     id: booking?._id || booking?.id,
                     workerName:
                         inlineWorkerName || workerInfo?.name || "Unknown worker",
-                    status: booking?.status || "confirmed",
+                    status: normalizeBookingStatus(booking?.status),
                     receiverId: workerInfo?.userId || "",
                 };
             });
@@ -89,6 +89,11 @@ export default function MyBookings() {
                     <CardTitle className="text-2xl">My Bookings</CardTitle>
                     <CardDescription>Booked workers with current booking status.</CardDescription>
                 </CardHeader>
+                <CardContent>
+                    <Button variant="outline" onClick={() => void loadBookings()} disabled={loading}>
+                        {loading ? "Refreshing..." : "Refresh"}
+                    </Button>
+                </CardContent>
             </Card>
 
             {error && <Alert variant="error">{error}</Alert>}
@@ -113,7 +118,9 @@ export default function MyBookings() {
                             <CardContent className="flex items-center justify-between gap-3 p-4">
                                 <p className="font-medium text-slate-900">{booking.workerName}</p>
                                 <div className="flex items-center gap-2">
-                                    <Badge>{booking.status}</Badge>
+                                    <Badge variant={getStatusBadgeVariant(booking.status)}>
+                                        {formatStatusLabel(booking.status)}
+                                    </Badge>
                                     <Link
                                         to={`/chat/${booking.id}`}
                                         state={{
@@ -132,6 +139,39 @@ export default function MyBookings() {
             )}
         </div>
     );
+}
+
+function normalizeBookingStatus(status) {
+    const normalizedStatus = String(status || "pending").trim().toLowerCase();
+
+    if (normalizedStatus === "confirmed") {
+        return "pending";
+    }
+
+    if (["pending", "accepted", "rejected", "completed"].includes(normalizedStatus)) {
+        return normalizedStatus;
+    }
+
+    return "pending";
+}
+
+function formatStatusLabel(status) {
+    const normalizedStatus = normalizeBookingStatus(status);
+    return normalizedStatus.charAt(0).toUpperCase() + normalizedStatus.slice(1);
+}
+
+function getStatusBadgeVariant(status) {
+    const normalizedStatus = normalizeBookingStatus(status);
+
+    if (normalizedStatus === "pending") {
+        return "warm";
+    }
+
+    if (normalizedStatus === "rejected") {
+        return "muted";
+    }
+
+    return "default";
 }
 
 async function fetchWorkers() {

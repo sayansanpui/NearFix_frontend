@@ -6,6 +6,32 @@ import { Card } from "./ui/card";
 import { Skeleton } from "./ui/skeleton";
 import { getWorkers } from "../lib/workers";
 
+function getDistanceValue(worker) {
+    const distance = Number(worker?.distance);
+    return Number.isFinite(distance) ? distance : null;
+}
+
+function sortWorkersByDistance(workers = []) {
+    return [...workers].sort((a, b) => {
+        const aDistance = getDistanceValue(a);
+        const bDistance = getDistanceValue(b);
+
+        if (aDistance === null && bDistance === null) {
+            return 0;
+        }
+
+        if (aDistance === null) {
+            return 1;
+        }
+
+        if (bDistance === null) {
+            return -1;
+        }
+
+        return aDistance - bDistance;
+    });
+}
+
 function WorkerCardSkeleton() {
     return (
         <Card className="overflow-hidden border-slate-200">
@@ -28,10 +54,14 @@ export default function WorkersGrid({
     actionDisabled = false,
     emptyMessage = "No workers found yet.",
     onlyAvailable = false,
+    location = null,
+    onWorkersLoaded,
 }) {
     const [workers, setWorkers] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState("");
+    const latitude = location?.lat;
+    const longitude = location?.lng;
 
     const fetchWorkers = useCallback(async ({ withLoading = true } = {}) => {
         try {
@@ -40,14 +70,26 @@ export default function WorkersGrid({
             }
             setError("");
 
-            const data = await getWorkers({ onlyAvailable });
-            setWorkers(data);
+            const data = await getWorkers({
+                onlyAvailable,
+                lat: latitude,
+                lng: longitude,
+            });
+            const sortedWorkers = sortWorkersByDistance(data);
+
+            setWorkers(sortedWorkers);
+            if (typeof onWorkersLoaded === "function") {
+                onWorkersLoaded(sortedWorkers);
+            }
         } catch (err) {
             setError(err?.message || "Something went wrong while loading workers.");
+            if (typeof onWorkersLoaded === "function") {
+                onWorkersLoaded([]);
+            }
         } finally {
             setLoading(false);
         }
-    }, [onlyAvailable]);
+    }, [onlyAvailable, onWorkersLoaded, latitude, longitude]);
 
     useEffect(() => {
         let intervalId;

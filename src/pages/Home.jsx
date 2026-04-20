@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { ArrowRight, LayoutDashboard, LogIn, UserPlus } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import WorkersMap from "../components/WorkersMap";
@@ -17,11 +17,63 @@ import { useAuth } from "../context/AuthContext";
 import { createBooking } from "../lib/bookings";
 import { getDefaultRouteForRole } from "../lib/auth";
 
+function getDistanceValue(worker) {
+    const distance = Number(worker?.distance);
+    return Number.isFinite(distance) ? distance : null;
+}
+
+function sortWorkersByDistance(workers = []) {
+    return [...workers].sort((a, b) => {
+        const aDistance = getDistanceValue(a);
+        const bDistance = getDistanceValue(b);
+
+        if (aDistance === null && bDistance === null) {
+            return 0;
+        }
+
+        if (aDistance === null) {
+            return 1;
+        }
+
+        if (bDistance === null) {
+            return -1;
+        }
+
+        return aDistance - bDistance;
+    });
+}
+
 export default function Home() {
     const { isAuthenticated, role, token } = useAuth();
     const navigate = useNavigate();
     const [bookingMessage, setBookingMessage] = useState("");
+    const [userLocation, setUserLocation] = useState(null);
+    const [workers, setWorkers] = useState([]);
     const dashboardPath = getDefaultRouteForRole(role);
+    const sortedWorkers = useMemo(() => sortWorkersByDistance(workers), [workers]);
+
+    useEffect(() => {
+        if (!navigator.geolocation) {
+            return;
+        }
+
+        navigator.geolocation.getCurrentPosition(
+            (position) => {
+                setUserLocation({
+                    lat: position.coords.latitude,
+                    lng: position.coords.longitude,
+                });
+            },
+            () => {
+                setUserLocation(null);
+            },
+            {
+                enableHighAccuracy: false,
+                timeout: 10000,
+                maximumAge: 300000,
+            },
+        );
+    }, []);
 
     const handleWorkerAction = async (worker) => {
         if (!isAuthenticated) {
@@ -33,8 +85,14 @@ export default function Home() {
             return;
         }
 
+        const matchedWorker = worker || sortedWorkers[0];
+        if (!matchedWorker) {
+            setBookingMessage("No workers available to book right now.");
+            return;
+        }
+
         try {
-            await createBooking(token, worker?._id || worker?.id);
+            await createBooking(token, matchedWorker?._id || matchedWorker?.id);
             setBookingMessage("Booking Successful");
         } catch (err) {
             setBookingMessage(err?.message || "Failed to create booking.");
@@ -144,6 +202,8 @@ export default function Home() {
                     showAction={role !== "worker"}
                     emptyMessage="No worker profiles are available yet."
                     onlyAvailable
+                    location={userLocation}
+                    onWorkersLoaded={setWorkers}
                 />
             </section>
 

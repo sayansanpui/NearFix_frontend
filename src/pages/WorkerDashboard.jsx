@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { CheckCircle2 } from "lucide-react";
 import WorkerCard from "../components/WorkerCard";
 import { Alert } from "../components/ui/alert";
@@ -14,6 +14,7 @@ import {
 import { Input } from "../components/ui/input";
 import { Label } from "../components/ui/label";
 import { useAuth } from "../context/AuthContext";
+import { getWorkerBookings, updateBookingStatus } from "../lib/bookings";
 import {
     createWorkerProfile,
     deleteMyWorkerProfile,
@@ -43,8 +44,52 @@ export default function WorkerDashboard() {
     const [availability, setAvailability] = useState(true);
     const [successMessage, setSuccessMessage] = useState("");
     const [errorMessage, setErrorMessage] = useState("");
+    const [workerBookings, setWorkerBookings] = useState([]);
+    const [isLoadingWorkerBookings, setIsLoadingWorkerBookings] = useState(true);
+    const [workerBookingsError, setWorkerBookingsError] = useState("");
+    const [updatingBookingId, setUpdatingBookingId] = useState("");
 
     const hasWorkerProfile = Boolean(workerProfile?._id || workerProfile?.id);
+
+    const bookingRequests = useMemo(
+        () =>
+            workerBookings.map((booking) => {
+                const bookingId = booking?.bookingId || booking?._id || booking?.id;
+                const status = normalizeBookingStatus(booking?.status);
+                const userName = booking?.user?.name || "Customer";
+                const userId = booking?.user?.id || booking?.userId || "";
+
+                return {
+                    id: bookingId,
+                    userName,
+                    userId,
+                    status,
+                    createdAt: booking?.createdAt || "",
+                };
+            }),
+        [workerBookings],
+    );
+
+    const loadWorkerBookings = useCallback(async () => {
+        if (!token) {
+            setWorkerBookings([]);
+            setIsLoadingWorkerBookings(false);
+            return;
+        }
+
+        try {
+            setIsLoadingWorkerBookings(true);
+            setWorkerBookingsError("");
+
+            const data = await getWorkerBookings(token);
+            setWorkerBookings(Array.isArray(data) ? data : []);
+        } catch (error) {
+            setWorkerBookingsError(error?.message || "Failed to load booking requests.");
+            setWorkerBookings([]);
+        } finally {
+            setIsLoadingWorkerBookings(false);
+        }
+    }, [token]);
 
     useEffect(() => {
         let isMounted = true;
@@ -110,6 +155,10 @@ export default function WorkerDashboard() {
             isMounted = false;
         };
     }, [isEditMode, token, user?.userId]);
+
+    useEffect(() => {
+        void loadWorkerBookings();
+    }, [loadWorkerBookings]);
 
     const handleChange = (event) => {
         const { name, value } = event.target;
@@ -243,6 +292,26 @@ export default function WorkerDashboard() {
             setErrorMessage(error.message || "Failed to delete worker profile.");
         } finally {
             setIsDeleting(false);
+        }
+    };
+
+    const handleBookingStatusChange = async (bookingId, status) => {
+        if (!token || !bookingId) {
+            return;
+        }
+
+        try {
+            setUpdatingBookingId(bookingId);
+            setWorkerBookingsError("");
+            setErrorMessage("");
+
+            await updateBookingStatus(token, bookingId, status);
+            setSuccessMessage(`Booking ${formatStatusLabel(status).toLowerCase()}.`);
+            await loadWorkerBookings();
+        } catch (error) {
+            setWorkerBookingsError(error?.message || "Failed to update booking status.");
+        } finally {
+            setUpdatingBookingId("");
         }
     };
 
@@ -434,8 +503,109 @@ export default function WorkerDashboard() {
                 <h2 className="font-display text-xl font-semibold text-slate-900">Live preview</h2>
                 <WorkerCard worker={previewWorker} showAction={false} />
             </div>
+
+            <Card className="lg:col-span-2">
+                <CardHeader>
+                    <CardTitle className="text-xl">Booking Requests</CardTitle>
+                    <CardDescription>
+                        Review user requests and accept or reject them.
+                    </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                    {workerBookingsError && <Alert variant="error">{workerBookingsError}</Alert>}
+
+                    {isLoadingWorkerBookings && <Alert>Loading booking requests...</Alert>}
+
+                    {!isLoadingWorkerBookings && bookingRequests.length === 0 && (
+                        <Alert>No booking requests yet.</Alert>
+                    )}
+
+                    {!isLoadingWorkerBookings && bookingRequests.length > 0 && (
+                        <div className="space-y-3">
+                            {bookingRequests.map((booking) => {
+                                const canAccept = booking.status !== "accepted" && booking.status !== "completed";
+                                const canReject = booking.status !== "rejected" && booking.status !== "completed";
+                                const isUpdatingThisBooking = updatingBookingId === booking.id;
+
+                                return (
+                                    <div
+                                        key={booking.id}
+                                        className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white/80 p-4"
+                                    >
+                                        <div>
+                                            <p className="font-medium text-slate-900">{booking.userName}</p>
+                                            <p className="text-xs text-slate-500">Booking: {booking.id}</p>
+                                            {booking.userId && (
+                                                <p className="text-xs text-slate-500">User ID: {booking.userId}</p>
+                                            )}
+                                        </div>
+
+                                        <div className="flex flex-wrap items-center gap-2">
+                                            <Badge variant={getStatusBadgeVariant(booking.status)}>
+                                                {formatStatusLabel(booking.status)}
+                                            </Badge>
+                                            <Button
+                                                size="sm"
+                                                onClick={() =>
+                                                    handleBookingStatusChange(booking.id, "accepted")
+                                                }
+                                                disabled={!canAccept || isUpdatingThisBooking}
+                                            >
+                                                Accept
+                                            </Button>
+                                            <Button
+                                                size="sm"
+                                                variant="danger"
+                                                onClick={() =>
+                                                    handleBookingStatusChange(booking.id, "rejected")
+                                                }
+                                                disabled={!canReject || isUpdatingThisBooking}
+                                            >
+                                                Reject
+                                            </Button>
+                                        </div>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    )}
+                </CardContent>
+            </Card>
         </div>
     );
+}
+
+function normalizeBookingStatus(status) {
+    const normalizedStatus = String(status || "pending").trim().toLowerCase();
+
+    if (normalizedStatus === "confirmed") {
+        return "pending";
+    }
+
+    if (["pending", "accepted", "rejected", "completed"].includes(normalizedStatus)) {
+        return normalizedStatus;
+    }
+
+    return "pending";
+}
+
+function formatStatusLabel(status) {
+    const normalizedStatus = normalizeBookingStatus(status);
+    return normalizedStatus.charAt(0).toUpperCase() + normalizedStatus.slice(1);
+}
+
+function getStatusBadgeVariant(status) {
+    const normalizedStatus = normalizeBookingStatus(status);
+
+    if (normalizedStatus === "pending") {
+        return "warm";
+    }
+
+    if (normalizedStatus === "rejected") {
+        return "muted";
+    }
+
+    return "default";
 }
 
 function workerToForm(worker) {

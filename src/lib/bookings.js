@@ -82,6 +82,58 @@ export async function getWorkerBookings(token) {
     return data;
 }
 
+export async function updateBookingStatus(token, bookingId, status) {
+    if (!token) {
+        throw new Error("Please login to update booking status.");
+    }
+
+    if (!bookingId) {
+        throw new Error("Booking is missing.");
+    }
+
+    const normalizedStatus = String(status || "").trim().toLowerCase();
+    const allowedStatuses = new Set(["accepted", "rejected", "completed", "pending"]);
+    if (!allowedStatuses.has(normalizedStatus)) {
+        throw new Error("Invalid booking status.");
+    }
+
+    const baseUrl = import.meta.env.VITE_API_URL || "";
+    const endpoints = [
+        `${baseUrl}/api/bookings/${bookingId}/status`,
+        `${baseUrl}/api/bookings/${bookingId}`,
+    ];
+
+    let lastErrorMessage = "Failed to update booking status.";
+
+    for (let index = 0; index < endpoints.length; index += 1) {
+        const response = await fetch(endpoints[index], {
+            method: "PATCH",
+            headers: {
+                "Content-Type": "application/json",
+                Authorization: `Bearer ${token}`,
+            },
+            body: JSON.stringify({ status: normalizedStatus }),
+        });
+
+        const data = await readJsonResponse(response);
+
+        if (response.ok) {
+            return data;
+        }
+
+        lastErrorMessage = data?.message || lastErrorMessage;
+
+        // Retry with fallback endpoint if route is not found.
+        if (response.status === 404 && index < endpoints.length - 1) {
+            continue;
+        }
+
+        throw new Error(lastErrorMessage);
+    }
+
+    throw new Error(lastErrorMessage);
+}
+
 export async function getBookingParticipants(token, bookingId) {
     if (!token) {
         throw new Error("Please login to access booking participants.");
@@ -131,4 +183,10 @@ export async function getWorkerBookingNotificationCount(token) {
 
     const unseenBookingCount = Number(data?.unseenBookingCount || 0);
     return Number.isFinite(unseenBookingCount) ? unseenBookingCount : 0;
+}
+
+async function readJsonResponse(response) {
+    const contentType = response.headers.get("content-type") || "";
+    const hasJson = contentType.includes("application/json");
+    return hasJson ? await response.json() : null;
 }

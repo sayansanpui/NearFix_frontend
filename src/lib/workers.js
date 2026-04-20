@@ -1,6 +1,19 @@
-export async function getWorkers({ onlyAvailable = false } = {}) {
+export async function getWorkers({ onlyAvailable = false, lat, lng } = {}) {
     const baseUrl = import.meta.env.VITE_API_URL || "";
-    const response = await fetch(`${baseUrl}/api/workers`, {
+    const latitude = Number(lat);
+    const longitude = Number(lng);
+    const queryParams = new URLSearchParams();
+
+    if (Number.isFinite(latitude) && Number.isFinite(longitude)) {
+        queryParams.set("lat", String(latitude));
+        queryParams.set("lng", String(longitude));
+    }
+
+    const endpoint = queryParams.toString()
+        ? `${baseUrl}/api/workers?${queryParams.toString()}`
+        : `${baseUrl}/api/workers`;
+
+    const response = await fetch(endpoint, {
         cache: "no-store",
     });
 
