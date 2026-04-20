@@ -72,6 +72,7 @@ export default function Dashboard() {
                     actionLabel="Book now"
                     showAction
                     emptyMessage="No workers are listed right now. Please check again soon."
+                    onlyAvailable
                 />
             </section>
 
@@ -80,7 +81,7 @@ export default function Dashboard() {
                     <h2 className="font-display text-2xl font-semibold text-slate-900">Workers map</h2>
                     <p className="text-slate-600">Marker popups show each worker name.</p>
                 </div>
-                <WorkersMap />
+                <WorkersMap onlyAvailable />
             </section>
         </div>
     );

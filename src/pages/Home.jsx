@@ -143,6 +143,7 @@ export default function Home() {
                     actionLabel={isAuthenticated ? "Book now" : "Login to book"}
                     showAction={role !== "worker"}
                     emptyMessage="No worker profiles are available yet."
+                    onlyAvailable
                 />
             </section>
 
@@ -153,7 +154,7 @@ export default function Home() {
                         Explore worker locations centered around Kolkata.
                     </p>
                 </div>
-                <WorkersMap />
+                <WorkersMap onlyAvailable />
             </section>
         </div>
     );

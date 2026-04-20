@@ -82,6 +82,7 @@ If `STORE_PLAINTEXT_PASSWORD=true` (or `1`), user plain-text password is stored 
     "lng": "number"
   },
   "image": "string",
+  "availability": "boolean (default: true)",
   "rating": "number (default: 0)",
   "createdAt": "ISO date",
   "updatedAt": "ISO date"
@@ -95,6 +96,7 @@ If `STORE_PLAINTEXT_PASSWORD=true` (or `1`), user plain-text password is stored 
   "userId": "ObjectId",
   "workerId": "ObjectId",
   "status": "string (default: confirmed)",
+  "seenByWorker": "boolean (default: false)",
   "createdAt": "ISO date"
 }
 ```
@@ -107,6 +109,7 @@ If `STORE_PLAINTEXT_PASSWORD=true` (or `1`), user plain-text password is stored 
   "receiverId": "ObjectId",
   "bookingId": "ObjectId",
   "text": "string",
+  "isRead": "boolean (default: false)",
   "createdAt": "ISO date"
 }
 ```
@@ -293,6 +296,7 @@ Returns the created worker document.
     "lng": 88.3639
   },
   "image": "https://res.cloudinary.com/<cloud>/image/upload/sample.jpg",
+  "availability": true,
   "rating": 0,
   "createdAt": "2026-04-17T10:00:00.000Z",
   "updatedAt": "2026-04-17T10:00:00.000Z",
@@ -358,6 +362,7 @@ Get all workers.
     "price": 499,
     "location": { "lat": 22.5726, "lng": 88.3639 },
     "image": "https://res.cloudinary.com/<cloud>/image/upload/sample.jpg",
+    "availability": true,
     "rating": 0,
     "createdAt": "2026-04-17T10:00:00.000Z",
     "updatedAt": "2026-04-17T10:00:00.000Z",
@@ -375,6 +380,333 @@ Get all workers.
 #### Example cURL
 ```bash
 curl http://localhost:5021/api/workers
+```
+
+---
+
+### `GET /api/workers/me`
+Get the logged-in worker's own profile.
+
+#### Access
+- Protected route: requires valid JWT
+- Role-restricted: only users with role `worker` can access
+
+#### Headers
+```http
+Authorization: Bearer <jwt-token>
+```
+
+#### Behavior
+- Uses `req.user.userId` to fetch only the authenticated worker's own profile
+
+#### Success Response `200`
+Returns the worker profile document.
+
+```json
+{
+  "_id": "66601c9fa3ec16d95f831111",
+  "userId": "665f9abca4f2f4d6870a1234",
+  "name": "Alex Plumber",
+  "skill": "Plumbing",
+  "price": 499,
+  "location": { "lat": 22.5726, "lng": 88.3639 },
+  "image": "https://res.cloudinary.com/<cloud>/image/upload/sample.jpg",
+  "availability": true,
+  "rating": 0,
+  "createdAt": "2026-04-17T10:00:00.000Z",
+  "updatedAt": "2026-04-17T10:00:00.000Z",
+  "__v": 0
+}
+```
+
+#### Error Responses
+- `401` Missing/invalid token
+```json
+{ "message": "Authorization token missing." }
+```
+```json
+{ "message": "Invalid or expired token." }
+```
+- `403` Role/owner guard failure
+```json
+{ "message": "Forbidden." }
+```
+```json
+{ "message": "Only workers can view their profile." }
+```
+- `404` Worker profile not found
+```json
+{ "message": "Worker profile not found." }
+```
+- `500` Server error
+```json
+{ "message": "Failed to fetch worker profile." }
+```
+
+#### Example cURL
+```bash
+curl http://localhost:5021/api/workers/me \
+  -H "Authorization: Bearer <token>"
+```
+
+---
+
+### `PATCH /api/workers/me`
+Update the logged-in worker's own profile.
+
+#### Access
+- Protected route: requires valid JWT
+- Role-restricted: only users with role `worker` can access
+
+#### Headers
+```http
+Authorization: Bearer <jwt-token>
+Content-Type: application/json
+```
+
+#### Accepted Fields
+- `name`
+- `skill`
+- `price`
+- `location.lat`
+- `location.lng`
+- `image`
+
+#### Behavior
+- Uses `req.user.userId` to enforce owner check
+- Returns updated worker profile
+
+#### Request Body (partial update)
+```json
+{
+  "name": "Alex Master Plumber",
+  "price": 599,
+  "location": {
+    "lat": 22.58,
+    "lng": 88.37
+  },
+  "image": "https://res.cloudinary.com/<cloud>/image/upload/new-image.jpg"
+}
+```
+
+#### Success Response `200`
+```json
+{
+  "message": "Worker profile updated successfully.",
+  "worker": {
+    "_id": "66601c9fa3ec16d95f831111",
+    "userId": "665f9abca4f2f4d6870a1234",
+    "name": "Alex Master Plumber",
+    "skill": "Plumbing",
+    "price": 599,
+    "location": {
+      "lat": 22.58,
+      "lng": 88.37
+    },
+    "image": "https://res.cloudinary.com/<cloud>/image/upload/new-image.jpg",
+    "availability": true,
+    "rating": 0,
+    "createdAt": "2026-04-17T10:00:00.000Z",
+    "updatedAt": "2026-04-18T09:30:00.000Z",
+    "__v": 0
+  }
+}
+```
+
+#### Error Responses
+- `401` Missing/invalid token
+```json
+{ "message": "Authorization token missing." }
+```
+```json
+{ "message": "Invalid or expired token." }
+```
+- `403` Role/owner guard failure
+```json
+{ "message": "Forbidden." }
+```
+```json
+{ "message": "Only workers can update their profile." }
+```
+- `400` Validation errors
+```json
+{ "message": "name must be a non-empty string." }
+```
+```json
+{ "message": "skill must be a non-empty string." }
+```
+```json
+{ "message": "price must be a valid number." }
+```
+```json
+{ "message": "location must be an object." }
+```
+```json
+{ "message": "location.lat must be a valid number." }
+```
+```json
+{ "message": "location.lng must be a valid number." }
+```
+```json
+{ "message": "image must be a non-empty string." }
+```
+```json
+{ "message": "Unsupported fields: foo. Allowed fields: name, skill, price, location, image." }
+```
+```json
+{ "message": "Unsupported location fields: altitude. Allowed fields: lat, lng." }
+```
+- `404` Worker profile not found
+```json
+{ "message": "Worker profile not found." }
+```
+- `500` Server error
+```json
+{ "message": "Failed to update worker profile." }
+```
+
+#### Example cURL
+```bash
+curl -X PATCH http://localhost:5021/api/workers/me \
+  -H "Authorization: Bearer <token>" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "Alex Master Plumber",
+    "price": 599,
+    "location": { "lat": 22.58, "lng": 88.37 },
+    "image": "https://res.cloudinary.com/<cloud>/image/upload/new-image.jpg"
+  }'
+```
+
+---
+
+### `DELETE /api/workers/me`
+Delete the logged-in worker's own profile.
+
+#### Access
+- Protected route: requires valid JWT
+- Role-restricted: only users with role `worker` can access
+
+#### Headers
+```http
+Authorization: Bearer <jwt-token>
+```
+
+#### Behavior
+- Uses `req.user.userId` to delete only the authenticated worker's own profile
+
+#### Success Response `200`
+```json
+{
+  "message": "Worker profile deleted successfully."
+}
+```
+
+#### Error Responses
+- `401` Missing/invalid token
+```json
+{ "message": "Authorization token missing." }
+```
+```json
+{ "message": "Invalid or expired token." }
+```
+- `403` Role/owner guard failure
+```json
+{ "message": "Forbidden." }
+```
+```json
+{ "message": "Only workers can delete their profile." }
+```
+- `404` Worker profile not found
+```json
+{ "message": "Worker profile not found." }
+```
+- `500` Server error
+```json
+{ "message": "Failed to delete worker profile." }
+```
+
+#### Example cURL
+```bash
+curl -X DELETE http://localhost:5021/api/workers/me \
+  -H "Authorization: Bearer <token>"
+```
+
+---
+
+### `PATCH /api/workers/availability`
+Toggle availability of the logged-in worker profile (`true` <-> `false`).
+
+#### Access
+- Protected route: requires valid JWT
+- Role-restricted: only users with role `worker` can access
+
+#### Headers
+```http
+Authorization: Bearer <jwt-token>
+```
+
+#### Request Body
+No request body required.
+
+#### Behavior
+- Finds worker profile using `req.user.userId`
+- Flips current `availability` value and saves
+
+#### Success Response `200`
+```json
+{
+  "message": "Availability updated successfully.",
+  "availability": false,
+  "worker": {
+    "_id": "66601c9fa3ec16d95f831111",
+    "userId": "665f9abca4f2f4d6870a1234",
+    "name": "Alex Plumber",
+    "skill": "Plumbing",
+    "price": 499,
+    "location": {
+      "lat": 22.5726,
+      "lng": 88.3639
+    },
+    "image": "https://res.cloudinary.com/<cloud>/image/upload/sample.jpg",
+    "availability": false,
+    "rating": 0,
+    "createdAt": "2026-04-17T10:00:00.000Z",
+    "updatedAt": "2026-04-17T10:30:00.000Z",
+    "__v": 0
+  }
+}
+```
+
+#### Error Responses
+- `401` Missing/invalid token
+```json
+{ "message": "Authorization token missing." }
+```
+```json
+{ "message": "Invalid or expired token." }
+```
+- `403` User not allowed by role check
+```json
+{ "message": "Forbidden." }
+```
+- `403` Non-worker trying to update availability (controller-level guard)
+```json
+{ "message": "Only workers can update availability." }
+```
+- `404` Worker profile not found
+```json
+{ "message": "Worker profile not found." }
+```
+- `500` Server error
+```json
+{ "message": "Failed to update availability." }
+```
+
+#### Example cURL
+```bash
+curl -X PATCH http://localhost:5021/api/workers/availability \
+  -H "Authorization: Bearer <token>"
 ```
 
 ---
@@ -406,6 +738,7 @@ Content-Type: application/json
 #### Behavior
 - `userId` is taken from `req.user.userId`
 - `status` defaults to `confirmed`
+- `seenByWorker` defaults to `false`
 
 #### Success Response `201`
 ```json
@@ -428,6 +761,10 @@ Content-Type: application/json
 - `400` Missing required field
 ```json
 { "message": "workerId is required." }
+```
+- `400` Invalid worker id
+```json
+{ "message": "Invalid workerId." }
 ```
 - `404` Worker not found
 ```json
@@ -501,6 +838,202 @@ curl http://localhost:5021/api/bookings/my \
 
 ---
 
+### `GET /api/bookings/worker`
+Get bookings assigned to the logged-in worker.
+
+#### Access
+- Protected route: requires valid JWT
+- Role-restricted: only users with role `worker` can access
+
+#### Headers
+```http
+Authorization: Bearer <jwt-token>
+```
+
+#### Success Response `200`
+Returns bookings (newest first) with customer and worker summary.
+
+```json
+[
+  {
+    "bookingId": "6660a8fca3ec16d95f832222",
+    "status": "confirmed",
+    "createdAt": "2026-04-17T12:00:00.000Z",
+    "user": {
+      "id": "665f9abca4f2f4d6870a1234",
+      "name": "John Doe"
+    },
+    "worker": {
+      "id": "66601c9fa3ec16d95f831111",
+      "name": "Alex Plumber",
+      "userId": "665f9abca4f2f4d6870a5678"
+    }
+  }
+]
+```
+
+#### Side Effect
+- Marks fetched worker bookings as seen for booking-notification badge tracking.
+
+#### Error Responses
+- `401` Missing/invalid token or no authenticated user context
+```json
+{ "message": "Authorization token missing." }
+```
+```json
+{ "message": "Invalid or expired token." }
+```
+```json
+{ "message": "Unauthorized." }
+```
+- `403` User not allowed by role check
+```json
+{ "message": "Forbidden." }
+```
+- `403` Non-worker trying to access worker bookings (controller-level guard)
+```json
+{ "message": "Only workers can access worker bookings." }
+```
+- `404` Worker profile not found
+```json
+{ "message": "Worker profile not found." }
+```
+- `500` Server error
+```json
+{ "message": "Failed to fetch worker bookings." }
+```
+
+#### Example cURL
+```bash
+curl http://localhost:5021/api/bookings/worker \
+  -H "Authorization: Bearer <token>"
+```
+
+---
+
+### `GET /api/bookings/worker-notification-count`
+Get unseen booking-notification count for the logged-in worker.
+
+#### Access
+- Protected route: requires valid JWT
+- Role-restricted: only users with role `worker` can access
+
+#### Headers
+```http
+Authorization: Bearer <jwt-token>
+```
+
+#### Success Response `200`
+```json
+{
+  "unseenBookingCount": 2
+}
+```
+
+#### Error Responses
+- `401` Missing/invalid token or no authenticated user context
+```json
+{ "message": "Authorization token missing." }
+```
+```json
+{ "message": "Invalid or expired token." }
+```
+```json
+{ "message": "Unauthorized." }
+```
+- `403` User not allowed by role check
+```json
+{ "message": "Forbidden." }
+```
+- `403` Non-worker trying to access booking notifications (controller-level guard)
+```json
+{ "message": "Only workers can access booking notifications." }
+```
+- `404` Worker profile not found
+```json
+{ "message": "Worker profile not found." }
+```
+- `500` Server error
+```json
+{ "message": "Failed to fetch booking notifications." }
+```
+
+#### Example cURL
+```bash
+curl http://localhost:5021/api/bookings/worker-notification-count \
+  -H "Authorization: Bearer <token>"
+```
+
+---
+
+### `GET /api/bookings/:bookingId/participants`
+Get booking participants and computed `receiverId` for the current authenticated user.
+
+#### Access
+- Protected route: requires valid JWT
+- Participant-only: only the booking user or booking worker can access
+
+#### Path Params
+- `bookingId`
+
+#### Headers
+```http
+Authorization: Bearer <jwt-token>
+```
+
+#### Success Response `200`
+```json
+{
+  "bookingId": "6660a8fca3ec16d95f832222",
+  "user": {
+    "id": "665f9abca4f2f4d6870a1234",
+    "name": "John Doe"
+  },
+  "worker": {
+    "id": "66601c9fa3ec16d95f831111",
+    "name": "Alex Plumber",
+    "userId": "665f9abca4f2f4d6870a5678"
+  },
+  "receiverId": "665f9abca4f2f4d6870a5678"
+}
+```
+
+#### Error Responses
+- `401` Missing/invalid token or no authenticated user context
+```json
+{ "message": "Authorization token missing." }
+```
+```json
+{ "message": "Invalid or expired token." }
+```
+```json
+{ "message": "Unauthorized." }
+```
+- `400` Invalid booking id
+```json
+{ "message": "Invalid bookingId." }
+```
+- `403` Authenticated user is not a booking participant
+```json
+{ "message": "Forbidden." }
+```
+- `404` Booking not found
+```json
+{ "message": "Booking not found." }
+```
+- `500` Server error
+```json
+{ "message": "Failed to fetch booking participants." }
+```
+
+#### Example cURL
+```bash
+curl http://localhost:5021/api/bookings/6660a8fca3ec16d95f832222/participants \
+  -H "Authorization: Bearer <token>"
+```
+
+---
+
 ## 5. Messages
 
 ### `POST /api/messages`
@@ -531,6 +1064,8 @@ Content-Type: application/json
 
 #### Behavior
 - `senderId` is taken from `req.user.userId`
+- Sender must be a booking participant
+- `receiverId` must be the other booking participant
 
 #### Success Response `201`
 Returns the created message document.
@@ -542,6 +1077,7 @@ Returns the created message document.
   "receiverId": "665f9abca4f2f4d6870a5678",
   "bookingId": "6660a8fca3ec16d95f832222",
   "text": "I will reach in 20 minutes.",
+  "isRead": false,
   "createdAt": "2026-04-17T14:30:00.000Z",
   "__v": 0
 }
@@ -562,6 +1098,26 @@ Returns the created message document.
 ```json
 { "message": "receiverId, bookingId, and text are required." }
 ```
+- `400` Invalid booking id
+```json
+{ "message": "Invalid bookingId." }
+```
+- `400` Invalid receiver id
+```json
+{ "message": "Invalid receiverId." }
+```
+- `400` Invalid receiver for booking
+```json
+{ "message": "receiverId must be the other booking participant." }
+```
+- `403` Authenticated user is not a booking participant
+```json
+{ "message": "Forbidden." }
+```
+- `404` Booking not found
+```json
+{ "message": "Booking not found." }
+```
 - `500` Server error
 ```json
 { "message": "Failed to send message." }
@@ -581,14 +1137,72 @@ curl -X POST http://localhost:5021/api/messages \
 
 ---
 
+### `GET /api/messages/unread-count`
+Get unread message count for worker inbox badge polling.
+
+#### Access
+- Protected route: requires valid JWT
+- Role-restricted: only users with role `worker` can access
+
+#### Headers
+```http
+Authorization: Bearer <jwt-token>
+```
+
+#### Success Response `200`
+```json
+{
+  "unreadCount": 3
+}
+```
+
+#### Error Responses
+- `401` Missing/invalid token or no authenticated user context
+```json
+{ "message": "Authorization token missing." }
+```
+```json
+{ "message": "Invalid or expired token." }
+```
+```json
+{ "message": "Unauthorized." }
+```
+- `403` User not allowed by role check
+```json
+{ "message": "Forbidden." }
+```
+- `500` Server error
+```json
+{ "message": "Failed to fetch unread count." }
+```
+
+#### Example cURL
+```bash
+curl http://localhost:5021/api/messages/unread-count \
+  -H "Authorization: Bearer <token>"
+```
+
+---
+
 ### `GET /api/messages/:bookingId`
 Get all messages for a booking sorted by `createdAt` (oldest first).
 
 #### Access
-- Public route (no auth required)
+- Protected route: requires valid JWT
+- Participant-only: only the booking user or booking worker can access
 
 #### Path Params
 - `bookingId`
+
+#### Headers
+```http
+Authorization: Bearer <jwt-token>
+```
+
+#### Behavior
+- Returns messages sorted by `createdAt` in ascending order
+- Marks messages as read where `receiverId` is current authenticated user
+- For a valid booking with zero messages, returns `200` with `[]`
 
 #### Success Response `200`
 Returns a list of messages sorted by `createdAt` in ascending order.
@@ -601,6 +1215,7 @@ Returns a list of messages sorted by `createdAt` in ascending order.
     "receiverId": "665f9abca4f2f4d6870a5678",
     "bookingId": "6660a8fca3ec16d95f832222",
     "text": "I will reach in 20 minutes.",
+    "isRead": true,
     "createdAt": "2026-04-17T14:30:00.000Z",
     "__v": 0
   }
@@ -608,6 +1223,28 @@ Returns a list of messages sorted by `createdAt` in ascending order.
 ```
 
 #### Error Responses
+- `401` Missing/invalid token or no authenticated user context
+```json
+{ "message": "Authorization token missing." }
+```
+```json
+{ "message": "Invalid or expired token." }
+```
+```json
+{ "message": "Unauthorized." }
+```
+- `400` Invalid booking id
+```json
+{ "message": "Invalid bookingId." }
+```
+- `403` Authenticated user is not a booking participant
+```json
+{ "message": "Forbidden." }
+```
+- `404` Booking not found
+```json
+{ "message": "Booking not found." }
+```
 - `500` Server error
 ```json
 { "message": "Failed to fetch messages." }
@@ -615,7 +1252,8 @@ Returns a list of messages sorted by `createdAt` in ascending order.
 
 #### Example cURL
 ```bash
-curl http://localhost:5021/api/messages/6660a8fca3ec16d95f832222
+curl http://localhost:5021/api/messages/6660a8fca3ec16d95f832222 \
+  -H "Authorization: Bearer <token>"
 ```
 
 ## Common Error Patterns

@@ -11,14 +11,14 @@ import {
 } from "../components/ui/card";
 import { Input } from "../components/ui/input";
 import { useAuth } from "../context/AuthContext";
-import { getMyBookings } from "../lib/bookings";
+import { getBookingParticipants } from "../lib/bookings";
 import { cn } from "../lib/utils";
 import { getMessages, sendMessage } from "../lib/messages";
 
 export default function Chat() {
     const { bookingId = "" } = useParams();
     const location = useLocation();
-    const { token, user } = useAuth();
+    const { token, user, role } = useAuth();
 
     const [messages, setMessages] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -26,15 +26,33 @@ export default function Chat() {
     const [error, setError] = useState("");
     const [text, setText] = useState("");
     const [receiverId, setReceiverId] = useState(location.state?.receiverId || "");
-    const [chatTitle, setChatTitle] = useState(location.state?.workerName || "Worker");
+    const [chatTitle, setChatTitle] = useState(
+        location.state?.counterpartName || location.state?.workerName || "Conversation"
+    );
 
     useEffect(() => {
-        const loadMessages = async () => {
+        const loadChatData = async () => {
             try {
                 setLoading(true);
                 setError("");
-                const data = await getMessages(bookingId);
-                setMessages(data);
+
+                const [messagesData, participantsData] = await Promise.all([
+                    getMessages(token, bookingId),
+                    getBookingParticipants(token, bookingId),
+                ]);
+
+                setMessages(messagesData);
+                setReceiverId(participantsData?.receiverId || "");
+
+                const participantUserId = participantsData?.user?.id || "";
+                const nextTitle =
+                    user?.userId === participantUserId
+                        ? participantsData?.worker?.name || "Worker"
+                        : participantsData?.user?.name || "Customer";
+
+                if (nextTitle) {
+                    setChatTitle(nextTitle);
+                }
             } catch (err) {
                 setError(err?.message || "Failed to load messages.");
             } finally {
@@ -42,33 +60,18 @@ export default function Chat() {
             }
         };
 
-        void loadMessages();
-    }, [bookingId]);
-
-    useEffect(() => {
-        if (receiverId) {
-            return;
+        if (token) {
+            void loadChatData();
         }
-
-        const resolveReceiver = async () => {
-            try {
-                const receiver = await resolveReceiverByBooking({
-                    token,
-                    bookingId,
-                    currentUserId: user?.userId,
-                });
-                setReceiverId(receiver.id);
-                setChatTitle(receiver.name || "Worker");
-            } catch {
-                // Keep message fetch usable even if recipient cannot be resolved for sending.
-            }
-        };
-
-        void resolveReceiver();
-    }, [bookingId, receiverId, token, user?.userId]);
+    }, [bookingId, token, user?.userId]);
 
     const handleSubmit = async (event) => {
         event.preventDefault();
+
+        if (!receiverId) {
+            setError("Unable to resolve message recipient for this booking.");
+            return;
+        }
 
         try {
             setSending(true);
@@ -101,8 +104,10 @@ export default function Chat() {
             </Card>
 
             <div className="flex justify-between">
-                <Link to="/my-bookings" className="inline-flex">
-                    <Button variant="outline">Back to My Bookings</Button>
+                <Link to={role === "worker" ? "/worker-inbox" : "/my-bookings"} className="inline-flex">
+                    <Button variant="outline">
+                        {role === "worker" ? "Back to Worker Inbox" : "Back to My Bookings"}
+                    </Button>
                 </Link>
             </div>
 
@@ -110,7 +115,7 @@ export default function Chat() {
 
             {loading && <Alert>Loading messages...</Alert>}
 
-            {!loading && (
+            {!loading && !error && (
                 <Card>
                     <CardContent className="space-y-3 p-4">
                         {messages.length === 0 && (
@@ -119,7 +124,7 @@ export default function Chat() {
 
                         {messages.map((message) => {
                             const messageId = message?._id || message?.id;
-                            const isMine = message?.senderId === user?.userId;
+                            const isMine = normalizeEntityId(message?.senderId) === user?.userId;
 
                             return (
                                 <div
@@ -174,71 +179,16 @@ export default function Chat() {
     );
 }
 
-async function resolveReceiverByBooking({ token, bookingId, currentUserId }) {
-    if (!token || !bookingId) {
-        throw new Error("Unable to resolve receiver.");
+function normalizeEntityId(value) {
+    if (!value) {
+        return "";
     }
 
-    const [bookings, workers] = await Promise.all([getMyBookings(token), fetchWorkers()]);
-
-    const booking = bookings.find((item) => (item?._id || item?.id) === bookingId);
-    if (!booking) {
-        throw new Error("Booking not found.");
+    if (typeof value === "object") {
+        return value?._id || value?.id || "";
     }
 
-    const workerRefRaw = booking?.workerId;
-    const workerRef =
-        typeof workerRefRaw === "object" && workerRefRaw !== null
-            ? workerRefRaw?._id || workerRefRaw?.id
-            : workerRefRaw;
-
-    const bookingUserIdRaw = booking?.userId;
-    const bookingUserId =
-        typeof bookingUserIdRaw === "object" && bookingUserIdRaw !== null
-            ? bookingUserIdRaw?._id || bookingUserIdRaw?.id
-            : bookingUserIdRaw;
-
-    const worker = workers.find((item) => (item?._id || item?.id) === workerRef);
-    const workerUserIdRaw = worker?.userId;
-    const workerUserId =
-        typeof workerUserIdRaw === "object" && workerUserIdRaw !== null
-            ? workerUserIdRaw?._id || workerUserIdRaw?.id
-            : workerUserIdRaw;
-
-    if (currentUserId && workerUserId && currentUserId === workerUserId && bookingUserId) {
-        return {
-            id: bookingUserId,
-            name: "Customer",
-        };
-    }
-
-    if (workerUserId) {
-        return {
-            id: workerUserId,
-            name: worker?.name || "Worker",
-        };
-    }
-
-    throw new Error("Receiver not found.");
-}
-
-async function fetchWorkers() {
-    const baseUrl = import.meta.env.VITE_API_URL || "";
-    const response = await fetch(`${baseUrl}/api/workers`);
-
-    const contentType = response.headers.get("content-type") || "";
-    const hasJson = contentType.includes("application/json");
-    const data = hasJson ? await response.json() : [];
-
-    if (!response.ok) {
-        throw new Error(data?.message || "Failed to fetch workers.");
-    }
-
-    if (!Array.isArray(data)) {
-        throw new Error("Invalid workers response format.");
-    }
-
-    return data;
+    return value;
 }
 
 function formatTimestamp(value) {

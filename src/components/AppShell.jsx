@@ -1,5 +1,5 @@
-import { useMemo, useState } from "react";
-import { Link, NavLink, Outlet, useNavigate } from "react-router-dom";
+import { useEffect, useMemo, useState } from "react";
+import { Link, NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
 import {
     BookCheck,
     Home,
@@ -7,12 +7,15 @@ import {
     LogIn,
     LogOut,
     Menu,
+    MessageSquare,
     UserPlus,
     Wrench,
     X,
 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import { getDefaultRouteForRole } from "../lib/auth";
+import { getWorkerBookingNotificationCount } from "../lib/bookings";
+import { getWorkerUnreadCount } from "../lib/messages";
 import { cn } from "../lib/utils";
 import { Badge } from "./ui/badge";
 import { Button } from "./ui/button";
@@ -25,12 +28,54 @@ function navLinkClass({ isActive }) {
 }
 
 export default function AppShell() {
-    const { isAuthenticated, role, logout } = useAuth();
+    const { isAuthenticated, role, token, logout } = useAuth();
+    const location = useLocation();
     const navigate = useNavigate();
     const [mobileNavOpen, setMobileNavOpen] = useState(false);
+    const [workerNotifications, setWorkerNotifications] = useState({
+        unreadMessages: 0,
+        unseenBookings: 0,
+    });
 
     const dashboardPath = getDefaultRouteForRole(role);
     const dashboardLabel = role === "worker" ? "Worker Dashboard" : "Dashboard";
+
+    const inboxBadgeCount =
+        workerNotifications.unreadMessages +
+        (location.pathname.startsWith("/worker-inbox") ? 0 : workerNotifications.unseenBookings);
+
+    useEffect(() => {
+        if (!isAuthenticated || role !== "worker" || !token) {
+            return;
+        }
+
+        let isMounted = true;
+
+        const loadNotifications = async () => {
+            try {
+                const [unreadMessages, unseenBookings] = await Promise.all([
+                    getWorkerUnreadCount(token),
+                    getWorkerBookingNotificationCount(token),
+                ]);
+
+                if (isMounted) {
+                    setWorkerNotifications({ unreadMessages, unseenBookings });
+                }
+            } catch {
+                // Keep previous values during transient polling errors.
+            }
+        };
+
+        void loadNotifications();
+        const intervalId = setInterval(() => {
+            void loadNotifications();
+        }, 30000);
+
+        return () => {
+            isMounted = false;
+            clearInterval(intervalId);
+        };
+    }, [isAuthenticated, role, token]);
 
     const links = useMemo(() => {
         if (isAuthenticated) {
@@ -51,6 +96,15 @@ export default function AppShell() {
                 });
             }
 
+            if (role === "worker") {
+                authenticatedLinks.push({
+                    to: "/worker-inbox",
+                    label: "Inbox",
+                    icon: MessageSquare,
+                    badgeCount: inboxBadgeCount,
+                });
+            }
+
             return authenticatedLinks;
         }
 
@@ -59,7 +113,7 @@ export default function AppShell() {
             { to: "/login", label: "Login", icon: LogIn },
             { to: "/register", label: "Register", icon: UserPlus },
         ];
-    }, [dashboardLabel, dashboardPath, isAuthenticated, role]);
+    }, [dashboardLabel, dashboardPath, inboxBadgeCount, isAuthenticated, role]);
 
     const handleLogout = () => {
         logout();
@@ -103,6 +157,11 @@ export default function AppShell() {
                                 <NavLink key={item.to} to={item.to} className={navLinkClass} end>
                                     <Icon className="h-4 w-4" />
                                     {item.label}
+                                    {item.badgeCount > 0 && (
+                                        <span className="ml-1 inline-flex min-w-5 items-center justify-center rounded-full bg-emerald-600 px-1.5 text-[11px] font-semibold text-white">
+                                            {item.badgeCount}
+                                        </span>
+                                    )}
                                 </NavLink>
                             );
                         })}
@@ -137,6 +196,11 @@ export default function AppShell() {
                                     >
                                         <Icon className="h-4 w-4" />
                                         {item.label}
+                                        {item.badgeCount > 0 && (
+                                            <span className="ml-1 inline-flex min-w-5 items-center justify-center rounded-full bg-emerald-600 px-1.5 text-[11px] font-semibold text-white">
+                                                {item.badgeCount}
+                                            </span>
+                                        )}
                                     </NavLink>
                                 );
                             })}

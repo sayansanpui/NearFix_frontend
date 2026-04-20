@@ -11,6 +11,7 @@ import NotFound from "./pages/NotFound.jsx";
 import Register from "./pages/Register.jsx";
 import Unauthorized from "./pages/Unauthorized.jsx";
 import WorkerDashboard from "./pages/WorkerDashboard.jsx";
+import WorkerInbox from "./pages/WorkerInbox.jsx";
 
 export default function App() {
   return (
@@ -58,6 +59,17 @@ export default function App() {
               <ProtectedRoute>
                 <RoleRoute allowedRoles={["worker"]}>
                   <WorkerDashboard />
+                </RoleRoute>
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="worker-inbox"
+            element={
+              <ProtectedRoute>
+                <RoleRoute allowedRoles={["worker"]}>
+                  <WorkerInbox />
                 </RoleRoute>
               </ProtectedRoute>
             }

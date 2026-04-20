@@ -1,9 +1,10 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import WorkerCard from "./WorkerCard";
 import { Alert } from "./ui/alert";
 import { Button } from "./ui/button";
 import { Card } from "./ui/card";
 import { Skeleton } from "./ui/skeleton";
+import { getWorkers } from "../lib/workers";
 
 function WorkerCardSkeleton() {
     return (
@@ -26,45 +27,46 @@ export default function WorkersGrid({
     showAction = true,
     actionDisabled = false,
     emptyMessage = "No workers found yet.",
+    onlyAvailable = false,
 }) {
     const [workers, setWorkers] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState("");
 
-    const fetchWorkers = async ({ withLoading = true } = {}) => {
+    const fetchWorkers = useCallback(async ({ withLoading = true } = {}) => {
         try {
             if (withLoading) {
                 setLoading(true);
             }
             setError("");
 
-            const baseUrl = import.meta.env.VITE_API_URL || "";
-            const response = await fetch(`${baseUrl}/api/workers`);
-
-            const contentType = response.headers.get("content-type") || "";
-            const hasJson = contentType.includes("application/json");
-            const data = hasJson ? await response.json() : null;
-
-            if (!response.ok) {
-                throw new Error(data?.message || "Failed to fetch workers.");
-            }
-
-            if (!Array.isArray(data)) {
-                throw new Error("Invalid workers response format.");
-            }
-
+            const data = await getWorkers({ onlyAvailable });
             setWorkers(data);
         } catch (err) {
             setError(err?.message || "Something went wrong while loading workers.");
         } finally {
             setLoading(false);
         }
-    };
+    }, [onlyAvailable]);
 
     useEffect(() => {
+        let intervalId;
+
         // eslint-disable-next-line react-hooks/set-state-in-effect
         fetchWorkers({ withLoading: false });
-    }, []);
+
+        if (onlyAvailable) {
+            intervalId = setInterval(() => {
+                void fetchWorkers({ withLoading: false });
+            }, 30000);
+        }
+
+        return () => {
+            if (intervalId) {
+                clearInterval(intervalId);
+            }
+        };
+    }, [fetchWorkers, onlyAvailable]);
 
     if (loading) {
         return (

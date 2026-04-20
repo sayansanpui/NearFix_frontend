@@ -5,6 +5,7 @@ import markerIcon from "../../node_modules/leaflet/dist/images/marker-icon.png";
 import markerShadow from "../../node_modules/leaflet/dist/images/marker-shadow.png";
 import { Alert } from "./ui/alert";
 import { Card } from "./ui/card";
+import { getWorkers } from "../lib/workers";
 
 const KOLKATA_CENTER = [22.57, 88.36];
 
@@ -14,7 +15,7 @@ L.Icon.Default.mergeOptions({
     shadowUrl: markerShadow,
 });
 
-export default function WorkersMap() {
+export default function WorkersMap({ onlyAvailable = false }) {
     const [workers, setWorkers] = useState([]);
     const [error, setError] = useState("");
     const mapElementRef = useRef(null);
@@ -23,24 +24,12 @@ export default function WorkersMap() {
 
     useEffect(() => {
         let isMounted = true;
+        let intervalId;
 
         const fetchWorkers = async () => {
             try {
                 setError("");
-                const baseUrl = import.meta.env.VITE_API_URL || "";
-                const response = await fetch(`${baseUrl}/api/workers`);
-
-                const contentType = response.headers.get("content-type") || "";
-                const hasJson = contentType.includes("application/json");
-                const data = hasJson ? await response.json() : null;
-
-                if (!response.ok) {
-                    throw new Error(data?.message || "Failed to fetch workers.");
-                }
-
-                if (!Array.isArray(data)) {
-                    throw new Error("Invalid workers response format.");
-                }
+                const data = await getWorkers({ onlyAvailable });
 
                 if (isMounted) {
                     setWorkers(data);
@@ -54,10 +43,19 @@ export default function WorkersMap() {
 
         void fetchWorkers();
 
+        if (onlyAvailable) {
+            intervalId = setInterval(() => {
+                void fetchWorkers();
+            }, 30000);
+        }
+
         return () => {
             isMounted = false;
+            if (intervalId) {
+                clearInterval(intervalId);
+            }
         };
-    }, []);
+    }, [onlyAvailable]);
 
     useEffect(() => {
         if (!mapElementRef.current || mapRef.current) {
