@@ -2,7 +2,6 @@ import { useState } from "react";
 import { BadgeIndianRupee, BriefcaseBusiness, MapPin, Star } from "lucide-react";
 import { Badge } from "./ui/badge";
 import { Button } from "./ui/button";
-import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "./ui/card";
 
 function formatPrice(price) {
     if (typeof price !== "number" || Number.isNaN(price)) {
@@ -29,71 +28,91 @@ export default function WorkerCard({
     const skill = worker?.skill || "General";
     const rating = Number(worker?.rating || 0).toFixed(1);
     const distance = Number(worker?.distance);
-    const distanceText = Number.isFinite(distance) ? `${distance.toFixed(1)} km away` : "";
+    const distanceText = Number.isFinite(distance) ? `${distance.toFixed(1)} km` : "";
     const locationText =
         typeof worker?.location?.lat === "number" && typeof worker?.location?.lng === "number"
             ? `${worker.location.lat.toFixed(2)}, ${worker.location.lng.toFixed(2)}`
             : "Location unavailable";
 
     const imageUrl = !imageError && worker?.image ? worker.image : "";
+    const initial = name.charAt(0).toUpperCase();
 
     return (
-        <Card className="group overflow-hidden border-slate-200 transition duration-300 hover:-translate-y-0.5 hover:shadow-[0_18px_35px_-20px_rgba(15,23,42,0.7)]">
-            {imageUrl ? (
-                <img
-                    src={imageUrl}
-                    alt={name}
-                    onError={() => setImageError(true)}
-                    className="h-44 w-full object-cover"
-                />
-            ) : (
-                <div className="flex h-44 w-full items-center justify-center bg-gradient-to-br from-emerald-100 via-amber-50 to-slate-100">
-                    <span className="font-display text-4xl font-semibold text-slate-500">
-                        {name.charAt(0).toUpperCase()}
-                    </span>
-                </div>
-            )}
+        <div className="group relative flex flex-col justify-between overflow-hidden rounded-2xl bg-white p-5 shadow-sm ring-1 ring-slate-200 transition-all hover:-translate-y-1 hover:shadow-md">
+            <div>
+                {/* Header Section */}
+                <div className="flex items-start justify-between gap-4">
+                    <div className="flex items-center gap-4">
+                        {/* Avatar */}
+                        <div className="relative h-14 w-14 shrink-0 overflow-hidden rounded-full ring-2 ring-slate-100">
+                            {imageUrl ? (
+                                <img
+                                    src={imageUrl}
+                                    alt={name}
+                                    onError={() => setImageError(true)}
+                                    className="h-full w-full object-cover"
+                                />
+                            ) : (
+                                <div className="flex h-full w-full items-center justify-center bg-emerald-100 text-xl font-bold text-emerald-800">
+                                    {initial}
+                                </div>
+                            )}
+                            <div className="absolute bottom-0 right-0 h-3 w-3 rounded-full border-2 border-white bg-green-500"></div>
+                        </div>
 
-            <CardHeader className="pb-2">
-                <div className="flex items-start justify-between gap-2">
-                    <div>
-                        <CardTitle className="line-clamp-1">{name}</CardTitle>
-                        {distanceText && <p className="text-xs text-slate-500">{distanceText}</p>}
+                        {/* Name & Skill */}
+                        <div className="space-y-0.5">
+                            <h3 className="font-display text-lg font-bold text-slate-900 leading-tight line-clamp-1">
+                                {name}
+                            </h3>
+                            <div className="flex items-center gap-2">
+                                <Badge variant="outline" className="bg-slate-50 text-slate-600 font-normal px-2 py-0 h-5 text-xs">
+                                    {skill}
+                                </Badge>
+                                {distanceText && (
+                                    <span className="text-xs font-medium text-slate-500 bg-slate-100 px-2 py-0.5 rounded-md">
+                                        {distanceText}
+                                    </span>
+                                )}
+                            </div>
+                        </div>
                     </div>
-                    <Badge variant="warm">{skill}</Badge>
+
+                    {/* Rating */}
+                    <div className="flex items-center gap-1 flex-col shrink-0">
+                        <div className="flex items-center gap-1 text-sm font-semibold text-slate-700">
+                            <Star className="h-4 w-4 fill-amber-400 text-amber-500" />
+                            {rating}
+                        </div>
+                    </div>
                 </div>
-            </CardHeader>
 
-            <CardContent className="space-y-2 text-sm text-slate-700">
-                <p className="flex items-center gap-2">
-                    <BriefcaseBusiness className="h-4 w-4 text-slate-500" />
-                    <span>{skill}</span>
-                </p>
-                <p className="flex items-center gap-2">
-                    <BadgeIndianRupee className="h-4 w-4 text-slate-500" />
-                    <span>{formatPrice(Number(worker?.price))}</span>
-                </p>
-                <p className="flex items-center gap-2">
-                    <MapPin className="h-4 w-4 text-slate-500" />
-                    <span className="line-clamp-1">{locationText}</span>
-                </p>
-                <p className="flex items-center gap-2">
-                    <Star className="h-4 w-4 text-amber-500" />
-                    <span>{rating} / 5</span>
-                </p>
-            </CardContent>
+                {/* Details Section */}
+                <div className="mt-5 space-y-2 border-t border-slate-100 pt-4">
+                    <div className="flex items-center gap-3 text-sm text-slate-600">
+                        <MapPin className="h-4 w-4 text-emerald-600" />
+                        <span className="truncate">{locationText}</span>
+                    </div>
+                    <div className="flex items-center gap-3 text-sm text-slate-600">
+                        <BadgeIndianRupee className="h-4 w-4 text-emerald-600" />
+                        <span className="font-medium text-slate-900">{formatPrice(Number(worker?.price))}</span>
+                        <span className="text-xs text-slate-500">/ job</span>
+                    </div>
+                </div>
+            </div>
 
+            {/* Action Button */}
             {showAction && (
-                <CardFooter>
+                <div className="mt-6 pt-2">
                     <Button
-                        fullWidth
+                        className="w-full bg-emerald-600 hover:bg-emerald-700 font-medium h-10 rounded-xl"
                         onClick={() => onAction?.(worker)}
                         disabled={actionDisabled || typeof onAction !== "function"}
                     >
                         {actionLabel}
                     </Button>
-                </CardFooter>
+                </div>
             )}
-        </Card>
+        </div>
     );
 }

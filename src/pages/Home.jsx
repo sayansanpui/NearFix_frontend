@@ -177,32 +177,34 @@ export default function Home() {
     };
 
     return (
-        <div className="space-y-8">
+        <div className="space-y-10">
             <section className="grid gap-6 lg:grid-cols-[1.2fr_0.8fr]">
-                <Card className="overflow-hidden border-none bg-slate-900 text-slate-100 shadow-xl">
-                    <CardHeader>
-                        <Badge variant="warm" className="w-fit bg-amber-300/20 text-amber-200">
+                <Card className="overflow-hidden border-none bg-emerald-900 text-slate-100 shadow-xl relative">
+                    <div className="absolute inset-0 bg-gradient-to-br from-emerald-900 to-teal-900 opacity-90"></div>
+                    <div className="absolute inset-0 bg-[url('https://images.unsplash.com/photo-1581578731548-c64695cc6952?q=80&w=2670&auto=format&fit=crop')] bg-cover bg-center mix-blend-overlay opacity-20"></div>
+                    
+                    <CardHeader className="relative z-10">
+                        <Badge variant="secondary" className="w-fit bg-emerald-800 text-emerald-100 hover:bg-emerald-700">
                             Local Service Marketplace
                         </Badge>
-                        <CardTitle className="mt-3 text-3xl text-white sm:text-4xl">
+                        <CardTitle className="mt-3 text-3xl font-display text-white sm:text-4xl">
                             Find trusted workers in minutes
                         </CardTitle>
-                        <CardDescription className="text-slate-300">
-                            NearFix helps users connect with local skilled workers, while worker
-                            accounts can quickly publish their service profile.
+                        <CardDescription className="text-emerald-100/80 text-base max-w-lg mt-2">
+                            NearFix helps users connect with local skilled workers quickly and safely. Register today to experience instant booking.
                         </CardDescription>
                     </CardHeader>
-                    <CardContent className="flex flex-wrap gap-3 pb-6">
+                    <CardContent className="relative z-10 flex flex-wrap gap-3 pb-6 mt-4">
                         {!isAuthenticated && (
                             <>
                                 <Link to="/login">
-                                    <Button>
+                                    <Button className="bg-emerald-500 hover:bg-emerald-600 border-none text-white shadow-md">
                                         <LogIn className="mr-2 h-4 w-4" />
                                         Login
                                     </Button>
                                 </Link>
                                 <Link to="/register">
-                                    <Button variant="secondary">
+                                    <Button variant="outline" className="text-emerald-900 bg-white hover:bg-emerald-50 border-none shadow-md">
                                         <UserPlus className="mr-2 h-4 w-4" />
                                         Create account
                                     </Button>
@@ -212,7 +214,7 @@ export default function Home() {
 
                         {isAuthenticated && (
                             <Link to={dashboardPath}>
-                                <Button variant="secondary">
+                                <Button className="bg-emerald-500 hover:bg-emerald-600 text-white shadow-md border-none">
                                     <LayoutDashboard className="mr-2 h-4 w-4" />
                                     Go to your dashboard
                                 </Button>
@@ -221,78 +223,100 @@ export default function Home() {
                     </CardContent>
                 </Card>
 
-                <Card>
+                <Card className="shadow-md border-slate-200/60">
                     <CardHeader>
-                        <CardTitle className="text-xl">Simple user flow</CardTitle>
+                        <CardTitle className="text-xl font-display">Simple user flow</CardTitle>
                         <CardDescription>
-                            Clear role-based journey that matches your backend APIs.
+                            Clear role-based journey that matches your needs.
                         </CardDescription>
                     </CardHeader>
                     <CardContent>
-                        <ol className="space-y-3 text-sm text-slate-700">
-                            <li>
-                                <span className="font-semibold text-slate-900">1.</span> Register as
-                                <span className="font-semibold"> user</span> or
-                                <span className="font-semibold"> worker</span>.
+                        <ol className="space-y-4 text-sm text-slate-700">
+                            <li className="flex gap-3">
+                                <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-emerald-100 text-emerald-700 font-bold text-xs">1</div>
+                                <div>Register as <span className="font-semibold">user</span> or <span className="font-semibold">worker</span>.</div>
                             </li>
-                            <li>
-                                <span className="font-semibold text-slate-900">2.</span> Login and get
-                                auto-redirected to your role dashboard.
+                            <li className="flex gap-3">
+                                <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-emerald-100 text-emerald-700 font-bold text-xs">2</div>
+                                <div>Login and get auto-redirected to your role dashboard.</div>
                             </li>
-                            <li>
-                                <span className="font-semibold text-slate-900">3.</span> Users browse
-                                workers, workers create service profiles.
+                            <li className="flex gap-3">
+                                <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-emerald-100 text-emerald-700 font-bold text-xs">3</div>
+                                <div>Users browse workers, workers offer services and earn.</div>
                             </li>
                         </ol>
                     </CardContent>
                 </Card>
             </section>
 
-            {bookingMessage && <Alert variant="success">{bookingMessage}</Alert>}
+            {bookingMessage && <Alert variant="success" className="bg-emerald-50 text-emerald-900 border-emerald-200">{bookingMessage}</Alert>}
 
-            <section className="space-y-4">
-                <div className="flex items-center justify-between gap-3">
-                    <div>
-                        <h2 className="font-display text-2xl font-semibold text-slate-900">
-                            Available workers
-                        </h2>
-                        <p className="text-slate-600">
-                            Compare skills, prices, and locations before booking.
-                        </p>
+            {/* Split View Layout */}
+            <section className="grid gap-8 lg:grid-cols-2 xl:grid-cols-[1.3fr_1fr] items-start">
+                
+                {/* Left Side: Scrollable Worker Grid */}
+                <div className="space-y-5">
+                    <div className="flex items-center justify-between gap-3">
+                        <div>
+                            <h2 className="font-display text-2xl font-bold text-slate-900 tracking-tight">
+                                Available workers
+                            </h2>
+                            <p className="text-slate-600 text-sm mt-1">
+                                Compare skills, prices, and locations before booking.
+                            </p>
+                        </div>
+                        {role === "user" && (
+                            <Badge variant="outline" className="hidden sm:inline-flex bg-white">Ready to book</Badge>
+                        )}
+                        {!isAuthenticated && (
+                            <Link to="/login" className="hidden sm:inline-flex">
+                                <Button variant="outline" size="sm" className="bg-white">
+                                    Login to start
+                                    <ArrowRight className="ml-2 h-4 w-4" />
+                                </Button>
+                            </Link>
+                        )}
                     </div>
-                    {role === "user" && (
-                        <Badge className="hidden sm:inline-flex">Ready to book</Badge>
-                    )}
-                    {!isAuthenticated && (
-                        <Link to="/login" className="hidden sm:inline-flex">
-                            <Button variant="outline">
-                                Login to start
-                                <ArrowRight className="ml-2 h-4 w-4" />
-                            </Button>
-                        </Link>
-                    )}
+                    
+                    <div className="max-h-[800px] overflow-y-auto pr-2 pb-4 scrollbar-thin scrollbar-thumb-slate-200 scrollbar-track-transparent">
+                        <WorkersGrid
+                            onAction={handleWorkerAction}
+                            actionLabel={actionLabel}
+                            showAction={role !== "worker"}
+                            actionDisabled={isBooking}
+                            emptyMessage="No worker profiles are available yet."
+                            onlyAvailable
+                            location={userLocation}
+                            onWorkersLoaded={setWorkers}
+                        />
+                    </div>
                 </div>
 
-                <WorkersGrid
-                    onAction={handleWorkerAction}
-                    actionLabel={actionLabel}
-                    showAction={role !== "worker"}
-                    actionDisabled={isBooking}
-                    emptyMessage="No worker profiles are available yet."
-                    onlyAvailable
-                    location={userLocation}
-                    onWorkersLoaded={setWorkers}
-                />
-            </section>
-
-            <section className="space-y-4">
-                <div>
-                    <h2 className="font-display text-2xl font-semibold text-slate-900">Workers map</h2>
-                    <p className="text-slate-600">
-                        Explore worker locations centered around Kolkata.
-                    </p>
+                {/* Right Side: Sticky Interactive Map */}
+                <div className="sticky top-24 pt-1 space-y-4 rounded-2xl bg-slate-50 p-4 ring-1 ring-slate-200/50 hidden lg:block">
+                    <div className="relative z-10 space-y-2">
+                        <h3 className="font-display text-lg font-bold text-slate-900 flex items-center gap-2">
+                            Interactive Map
+                            {userLocation && (
+                                <Badge variant="secondary" className="text-[10px] uppercase font-bold tracking-widest bg-emerald-100 text-emerald-800 shrink-0">Live tracking</Badge>
+                            )}
+                        </h3>
+                        <p className="text-sm text-slate-500">Find professionals closest to your precise location.</p>
+                    </div>
+                    <div className="h-[600px] w-full mt-4 overflow-hidden rounded-xl shadow-inner border border-slate-200/50">
+                        <WorkersMap onlyAvailable highlightWorkerId={acceptedWorkerId} onMarkerAction={handleWorkerAction} />
+                    </div>
                 </div>
-                <WorkersMap onlyAvailable highlightWorkerId={acceptedWorkerId} />
+
+                {/* Mobile Map View (Fallback) */}
+                <div className="space-y-4 lg:hidden mt-8 max-w-full">
+                    <div>
+                        <h2 className="font-display text-xl font-bold text-slate-900">Interactive map</h2>
+                    </div>
+                    <div className="h-[400px] w-full overflow-hidden rounded-xl shadow-sm border border-slate-200/50">
+                        <WorkersMap onlyAvailable highlightWorkerId={acceptedWorkerId} onMarkerAction={handleWorkerAction} />
+                    </div>
+                </div>
             </section>
         </div>
     );

@@ -1,9 +1,11 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import WorkerCard from "./WorkerCard";
 import { Alert } from "./ui/alert";
 import { Button } from "./ui/button";
 import { Card } from "./ui/card";
+import { Input } from "./ui/input";
 import { Skeleton } from "./ui/skeleton";
+import { Search, Filter } from "lucide-react";
 import { getWorkers } from "../lib/workers";
 
 function getDistanceValue(worker) {
@@ -60,6 +62,8 @@ export default function WorkersGrid({
     const [workers, setWorkers] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState("");
+    const [searchQuery, setSearchQuery] = useState("");
+    const [skillFilter, setSkillFilter] = useState("all");
     const latitude = location?.lat;
     const longitude = location?.lng;
 
@@ -110,6 +114,22 @@ export default function WorkersGrid({
         };
     }, [fetchWorkers, onlyAvailable]);
 
+    const uniqueSkills = useMemo(() => {
+        const skillsObj = {};
+        workers.forEach((w) => {
+            if (w.skill) skillsObj[w.skill] = true;
+        });
+        return Object.keys(skillsObj).sort();
+    }, [workers]);
+
+    const filteredWorkers = useMemo(() => {
+        return workers.filter((worker) => {
+            const matchesQuery = (worker.name || "").toLowerCase().includes(searchQuery.toLowerCase());
+            const matchesSkill = skillFilter === "all" || worker.skill === skillFilter;
+            return matchesQuery && matchesSkill;
+        });
+    }, [workers, searchQuery, skillFilter]);
+
     if (loading) {
         return (
             <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
@@ -131,22 +151,64 @@ export default function WorkersGrid({
         );
     }
 
-    if (workers.length === 0) {
-        return <Alert>{emptyMessage}</Alert>;
-    }
-
     return (
-        <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
-            {workers.map((worker, index) => (
-                <WorkerCard
-                    key={worker?._id || worker?.id || `${worker?.name || "worker"}-${index}`}
-                    worker={worker}
-                    onAction={onAction}
-                    actionLabel={actionLabel}
-                    actionDisabled={actionDisabled}
-                    showAction={showAction}
-                />
-            ))}
+        <div className="space-y-6">
+            {/* Search and Filters Bar */}
+            <div className="sticky top-16 z-10 -mx-4 px-4 py-3 bg-[#f6f3ec]/90 backdrop-blur-md md:static md:mx-0 md:px-0 md:py-0 md:bg-transparent md:backdrop-blur-none transition-all">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+                    <div className="relative flex-1">
+                        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                        <Input
+                            placeholder="Find by name..."
+                            value={searchQuery}
+                            onChange={(e) => setSearchQuery(e.target.value)}
+                            className="pl-9 h-11 rounded-xl bg-white focus-visible:ring-emerald-500 shadow-sm border-slate-200"
+                        />
+                    </div>
+                    <div className="relative sm:w-[200px] shrink-0">
+                        <Filter className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400 z-10" />
+                        {/* Custom Select using standard tailwind to match shadcn select visually until fully implemented */}
+                        <select
+                            value={skillFilter}
+                            onChange={(e) => setSkillFilter(e.target.value)}
+                            className="h-11 w-full pl-9 pr-8 rounded-xl bg-white shadow-sm border border-slate-200 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 appearance-none text-slate-700"
+                        >
+                            <option value="all">All Skills</option>
+                            {uniqueSkills.map((skill) => (
+                                <option key={skill} value={skill}>
+                                    {skill}
+                                </option>
+                            ))}
+                        </select>
+                        <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3 text-slate-400">
+                            <svg className="h-4 w-4 fill-current" viewBox="0 0 20 20">
+                                <path d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" />
+                            </svg>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            {workers.length === 0 ? (
+                <Alert>{emptyMessage}</Alert>
+            ) : filteredWorkers.length === 0 ? (
+                <div className="rounded-xl border border-dashed border-slate-300 p-8 text-center text-slate-500">
+                    No workers match your search criteria. Try adjusting the skill filter or search query.
+                </div>
+            ) : (
+                <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3">
+                    {filteredWorkers.map((worker, index) => (
+                        <WorkerCard
+                            key={worker?._id || worker?.id || `${worker?.name || "worker"}-${index}`}
+                            worker={worker}
+                            onAction={onAction}
+                            actionLabel={actionLabel}
+                            actionDisabled={actionDisabled}
+                            showAction={showAction}
+                        />
+                    ))}
+                </div>
+            )}
         </div>
     );
 }
